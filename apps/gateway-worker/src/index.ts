@@ -12,6 +12,21 @@ export interface Env {
   AI_MODEL_CHAT_PRIMARY?: string;
 }
 
+// ADD NEAR TOP (below your imports/types)
+const ALLOWED_CHAT_MODELS = [
+  '@cf/meta/llama-3.1-8b-instruct',
+  '@cf/meta/llama-3.1-70b-instruct'
+];
+
+const ALLOWED_EMBED_MODELS = [
+  '@cf/baai/bge-m3',
+  '@cf/baai/bge-small-en-v1.5'
+];
+
+// OPTIONAL: if you want to override from an env var CSV later:
+// parse env.ALLOWED_CHAT_MODELS etc. (not shown here for brevity)
+
+
 // ---- CORS CONFIG ----
 const ALLOWED_ORIGINS = new Set<string>([
   'http://localhost:4200',
@@ -73,7 +88,7 @@ function normalizeChatPayload(incoming: any): ChatPayload {
   if (!Array.isArray(p.messages)) {
     const text = typeof p.prompt === 'string' ? p.prompt
       : typeof p.message === 'string' ? p.message
-      : undefined;
+        : undefined;
     if (typeof text === 'string') {
       p.messages = [{ role: 'user', content: text }];
       delete p.prompt;
@@ -92,10 +107,11 @@ async function runChatCF(incoming: any, env: Env): Promise<any> {
   if (!env.AI_MODEL_CHAT_PRIMARY) {
     throw new Error('AI_MODEL_CHAT_PRIMARY is not set');
   }
-
   const payload = normalizeChatPayload(incoming);
+  const model = incoming?.model || env.AI_MODEL_CHAT_PRIMARY;
+  if (!model) throw new Error('No chat model provided');
 
-  const url = `https://api.cloudflare.com/client/v4/accounts/${env.AI_ACCOUNT_ID_PRIMARY}/ai/run/${env.AI_MODEL_CHAT_PRIMARY}`;
+  const url = `https://api.cloudflare.com/client/v4/accounts/${env.AI_ACCOUNT_ID_PRIMARY}/ai/run/${model}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -179,23 +195,69 @@ async function handleEmbeddings(req: Request, env: Env, origin: string | null): 
   }
 }
 
+function handleOptions(request: Request, env: Env): Response {
+  const origin = request.headers.get('Origin') || '';
+  const headers = new Headers();
+  // Mirror your makeCorsHeaders policy (static allowlist in your file)
+  if (ALLOWED_ORIGINS.has(origin)) {
+    headers.set('Access-Control-Allow-Origin', origin);
+  }
+  headers.set('Vary', 'Origin');
+  headers.set('Access-Control-Allow-Methods', ALLOWED_METHODS.join(', '));
+  headers.set('Access-Control-Allow-Headers', ALLOWED_HEADERS.join(', '));
+  return new Response(null, { status: 204, headers });
+}
+
+
 // ---- WORKER ENTRY ----
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
-    const origin = req.headers.get('Origin');
-    const { pathname } = new URL(req.url);
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    const origin = request.headers.get('Origin') || '';
 
-    // 1) Preflight
-    if (req.method === 'OPTIONS') {
-      const headers = makeCorsHeaders(origin);
-      return new Response(null, { status: 204, headers });
+    // List allowed models for the UI dropdown
+    if (url.pathname === '/v1/models' && request.method === 'GET') {
+      return jsonResponse(
+        {
+          chat: ALLOWED_CHAT_MODELS,
+          embeddings: ALLOWED_EMBED_MODELS
+        },
+        { status: 200 },
+        origin
+      );
     }
 
-    // 2) Routes
-    if (pathname === '/v1/chat') return handleChat(req, env, origin);
-    if (pathname === '/v1/embeddings') return handleEmbeddings(req, env, origin);
 
-    // 3) 404
-    return jsonResponse({ error: 'Not found' }, { status: 404 }, origin);
+    // 1) CORS preflight
+    if (request.method === 'OPTIONS') {
+      return handleOptions(request, env);
+    }
+
+    // 2) Health endpoint (optional)
+    if (request.method === 'GET' && url.pathname === '/health') {
+      return jsonResponse({ ok: true }, { status: 200 }, origin);
+    }
+
+    // 3) Version/debug endpoint (← YOUR SNIPPET GOES HERE)
+    if (url.pathname === '/version' && request.method === 'GET') {
+      return jsonResponse({
+        provider: env.AI_PROVIDER_PRIMARY || '(unset)',
+        accountId: (env.AI_ACCOUNT_ID_PRIMARY || '').slice(0, 6) + '…',
+        gitSha: env.GIT_SHA?.slice(0, 7) || '(unset)',
+        ts: new Date().toISOString(),
+      }, { status: 200 }, origin);
+    }
+
+    // 4) API routes
+    if (url.pathname === '/v1/chat') {
+      return handleChat(request, env, origin);
+    }
+    if (url.pathname === '/v1/embeddings') {
+      return handleEmbeddings(request, env, origin);
+    }
+
+    // 5) Fallback 404 (must come last)
+    return new Response('Not found', { status: 404 });
   },
 };
+
