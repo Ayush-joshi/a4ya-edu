@@ -13,5 +13,4 @@ Thumbs.db
 *.swp
 *.swo
 *~
-package-lock.json
 yarn.lock
