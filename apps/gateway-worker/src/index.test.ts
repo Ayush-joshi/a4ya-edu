@@ -9,6 +9,8 @@ const env = {
   AI_MODEL_EMBEDDINGS_PRIMARY: '@cf/test/embed',
   ALLOWED_ORIGINS: 'https://example.com',
   GATEWAY_PUBLIC_KEY: 'valid-key',
+  PAGES_ORIGIN: 'https://example.com',
+  ALLOW_ORIGIN_ONLY: 'false',
 };
 
 describe('gateway worker', () => {
@@ -67,6 +69,20 @@ describe('gateway worker', () => {
     expect(res.status).toBe(401);
     const data = await res.json<any>();
     expect(data).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('allows origin-only auth when enabled', async () => {
+    const originEnv = { ...env, ALLOW_ORIGIN_ONLY: 'true' };
+    const req = new Request('https://example.com/v1/chat', {
+      method: 'POST',
+      headers: {
+        Origin: 'https://example.com',
+      },
+    });
+    const res = await worker.fetch(req, originEnv);
+    expect(res.status).toBe(200);
+    const data = await res.json<any>();
+    expect(data.reply).toBe('Hello from gateway');
   });
 
   it('handles embeddings requests', async () => {

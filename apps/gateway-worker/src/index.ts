@@ -9,6 +9,8 @@ export interface Env {
   ALLOWED_ORIGINS: string;
   GATEWAY_PUBLIC_KEY: string;
   GIT_SHA?: string;
+  PAGES_ORIGIN: string;
+  ALLOW_ORIGIN_ONLY?: string;
 }
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
@@ -37,12 +39,15 @@ export default {
       );
     }
 
-    const apiKey = request.headers.get('X-API-Key');
-    if (apiKey !== env.GATEWAY_PUBLIC_KEY) {
-      return jsonResponse(
-        { error: 'Unauthorized' },
-        { status: 401, headers: { 'Access-Control-Allow-Origin': origin } }
-      );
+    const allowOriginOnly = env.ALLOW_ORIGIN_ONLY === 'true' && origin === env.PAGES_ORIGIN;
+    if (!allowOriginOnly) {
+      const apiKey = request.headers.get('X-API-Key');
+      if (apiKey !== env.GATEWAY_PUBLIC_KEY) {
+        return jsonResponse(
+          { error: 'Unauthorized' },
+          { status: 401, headers: { 'Access-Control-Allow-Origin': origin } }
+        );
+      }
     }
 
     if (request.method === 'GET' && url.pathname === '/health') {
