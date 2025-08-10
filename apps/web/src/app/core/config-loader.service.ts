@@ -10,22 +10,21 @@ const DEFAULT_CONFIG: RuntimeConfig = {
 
 @Injectable({ providedIn: 'root' })
 export class ConfigLoaderService {
-  config = signal<RuntimeConfig | null>(null);
+  config = signal<RuntimeConfig>(DEFAULT_CONFIG);
 
   async load(): Promise<void> {
+    const url = new URL('assets/runtime-config.json', document.baseURI).href;
     try {
-      const res = await fetch('assets/runtime-config.json');
+      const res = await fetch(url);
       if (!res.ok) {
         console.error(
           `Failed to load runtime config: ${res.status} ${res.statusText}`,
         );
-        this.config.set(DEFAULT_CONFIG);
         return;
       }
       this.config.set(await res.json());
     } catch (err) {
       console.error('Error loading runtime config', err);
-      this.config.set(DEFAULT_CONFIG);
     }
   }
 }
