@@ -31,12 +31,18 @@ export default {
     const origin = request.headers.get('Origin') || '';
     const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
     if (!allowedOrigins.includes(origin)) {
-      return jsonResponse({ error: 'Forbidden' }, { status: 403 });
+      return jsonResponse(
+        { error: 'Forbidden' },
+        { status: 403, headers: { 'Access-Control-Allow-Origin': origin } }
+      );
     }
 
     const apiKey = request.headers.get('X-API-Key');
     if (apiKey !== env.GATEWAY_PUBLIC_KEY) {
-      return jsonResponse({ error: 'Unauthorized' }, { status: 401 });
+      return jsonResponse(
+        { error: 'Unauthorized' },
+        { status: 401, headers: { 'Access-Control-Allow-Origin': origin } }
+      );
     }
 
     const requestId = crypto.randomUUID();
@@ -51,7 +57,10 @@ function handleOptions(request: Request, env: Env): Response {
   const origin = request.headers.get('Origin') || '';
   const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
   if (!allowedOrigins.includes(origin)) {
-    return new Response(null, { status: 403 });
+    return new Response(null, {
+      status: 403,
+      headers: { 'Access-Control-Allow-Origin': origin },
+    });
   }
   return new Response(null, {
     status: 204,
