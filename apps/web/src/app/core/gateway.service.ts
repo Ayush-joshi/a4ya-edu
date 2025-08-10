@@ -15,8 +15,14 @@ export class GatewayService {
       (typeof anyCfg?.gatewayUrl === 'string' && anyCfg.gatewayUrl) ||
       (typeof anyCfg?.config?.gatewayUrl === 'string' && anyCfg.config.gatewayUrl) ||
       '';
-    const b = raw.trim();
-    return b ? b.replace(/\/$/, '') : '';
+    const b = raw.trim().replace(/\/$/, '');
+    if (!b) {
+      const msg =
+        'Gateway base URL is not configured. Please set "gatewayUrl" in runtime-config.json';
+      console.error(msg);
+      throw new Error(msg);
+    }
+    return b;
   }
 
   async getModels(): Promise<{ chat: string[]; embeddings: string[] }> {
