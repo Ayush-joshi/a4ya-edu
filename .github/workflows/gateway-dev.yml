@@ -24,6 +24,7 @@ jobs:
           ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
           AI_API_KEY_PRIMARY: ${{ secrets.AI_API_KEY_PRIMARY }}
           GATEWAY_PUBLIC_KEY: ${{ secrets.GATEWAY_PUBLIC_KEY }}
+          GIT_SHA: ${{ github.sha }}
       - name: Summary
         run: |
           echo "## Deployed gateway (dev)" >> $GITHUB_STEP_SUMMARY
