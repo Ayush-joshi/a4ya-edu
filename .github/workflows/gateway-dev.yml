@@ -1,0 +1,19 @@
+name: Gateway Worker Dev Deploy
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: dev
+    defaults:
+      run:
+        working-directory: apps/gateway-worker
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Wrangler
+        run: npm install -g wrangler
+      - name: Deploy Worker
+        run: wrangler deploy
