@@ -1,10 +1,11 @@
-import { Component, inject, signal, effect } from '@angular/core';
-import { JsonPipe, NgIf, NgFor } from '@angular/common';
+// apps/web/src/app/features/api-debug/api-debug.component.ts
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { NgIf, NgFor, JsonPipe } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { GatewayService } from '../../core/gateway.service';
+import { GatewayService, ChatMessage } from '../../core/gateway.service';
 
 @Component({
   selector: 'app-api-debug',
@@ -12,7 +13,7 @@ import { GatewayService } from '../../core/gateway.service';
   imports: [NgIf, NgFor, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, JsonPipe],
   template: `
     <div class="row">
-      <mat-form-field appearance="outline" class="model">
+      <mat-form-field appearance="outline" class="field">
         <mat-label>Model</mat-label>
         <mat-select [value]="selectedModel()" (selectionChange)="selectedModel.set($event.value)">
           <mat-option *ngFor="let m of chatModels()" [value]="m">{{ m }}</mat-option>
@@ -20,59 +21,100 @@ import { GatewayService } from '../../core/gateway.service';
       </mat-form-field>
     </div>
 
-    <mat-form-field appearance="outline" class="prompt">
-      <textarea matInput
+    <mat-form-field appearance="outline" class="field">
+      <mat-label>Prompt</mat-label>
+      <textarea
+        matInput
         [value]="prompt()"
-        (input)="prompt.set($any($event.target).value)"
-        placeholder="Prompt"></textarea>
+        (input)="prompt.set(($event.target as HTMLTextAreaElement).value)"
+        rows="5"
+        placeholder="Say something..."></textarea>
     </mat-form-field>
 
-    <button mat-raised-button color="primary" (click)="send()">Send</button>
-    <pre>{{ response() | json }}</pre>
+    <div class="row">
+      <button mat-raised-button color="primary"
+              [disabled]="sendDisabled()"
+              (click)="send()">Send</button>
+      <button mat-button (click)="clear()">Clear</button>
+    </div>
+
+    <div class="meta" *ngIf="loading()">Loading…</div>
+    <div class="meta err" *ngIf="error() as e">Error: {{ e }}</div>
+
+    <pre *ngIf="response() as r">{{ r | json }}</pre>
   `,
   styles: [`
-    .row { display: flex; gap: 1rem; }
-    .model { width: 100%; max-width: 600px; }
-    .prompt { width: 100%; margin-top: 1rem; }
-    pre { white-space: pre-wrap; background: #f5f5f5; padding: 1rem; margin-top: 1rem; }
+    .row { display:flex; gap:.75rem; align-items:center; margin-bottom:.75rem; }
+    .field { width:100%; max-width:840px; }
+    .meta { margin:.5rem 0; font-size:.9rem; opacity:.85; }
+    .meta.err { color:#c62828; }
+    pre { white-space:pre-wrap; background:#f6f8fa; padding:1rem; border-radius:8px; }
   `]
 })
 export class ApiDebugComponent {
-  private gateway = inject(GatewayService);
+  private api = inject(GatewayService);
 
-  prompt = signal('');
-  response = signal<any>(null);
+  // signals
   chatModels = signal<string[]>([]);
-  selectedModel = signal<string | null>(null);
+  selectedModel = signal<string>('');   // <- string only
+  prompt = signal<string>('');
+  loading = signal<boolean>(false);
+  error = signal<string | null>(null);
+  response = signal<any>(null);
+
+  // derived
+  sendDisabled = computed(() => this.loading() || !this.prompt().trim() || !this.selectedModel());
 
   constructor() {
-    // load models once
     this.loadModels();
+    effect(() => {
+      const m = this.selectedModel();
+      if (m) console.debug('[api-debug] model =', m);
+    });
   }
 
   private async loadModels() {
+    this.loading.set(true);
+    this.error.set(null);
     try {
-      const models = await this.gateway.getModels();
-      this.chatModels.set(models.chat || []);
-      // preselect first model
-      if (models.chat?.length) this.selectedModel.set(models.chat[0]);
-    } catch (e) {
-      console.error('Failed to load models', e);
+      const { chat } = await this.api.getModels();
+      this.chatModels.set(chat ?? []);
+      if (chat?.length && !this.selectedModel()) this.selectedModel.set(chat[0]);
+    } catch (e: any) {
+      this.error.set(String(e?.message ?? e));
       this.chatModels.set([]);
-      this.selectedModel.set(null);
+      this.selectedModel.set('');
+    } finally {
+      this.loading.set(false);
     }
   }
 
   async send() {
-    const model = this.selectedModel();
-    const prompt = this.prompt().trim();
-    if (!prompt) return;
+    if (this.sendDisabled()) return;
+    this.loading.set(true);
+    this.error.set(null);
+    this.response.set(null);
 
-    const res = await this.gateway.chat({
-      model, // <-- runtime selection
-      messages: [{ role: 'user', content: prompt }]
-    });
+    const maybeModel = this.selectedModel().trim() || undefined; // <- undefined if empty
 
-    this.response.set(res);
+    const payload = {
+      model: maybeModel,
+      messages: [{ role: 'user', content: this.prompt().trim() } as ChatMessage],
+    };
+
+    try {
+      const res = await this.api.chat(payload);
+      this.response.set(res);
+    } catch (e: any) {
+      this.error.set(String(e?.message ?? e));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  clear() {
+    this.prompt.set('');
+    this.response.set(null);
+    this.error.set(null);
   }
 }
