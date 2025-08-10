@@ -39,11 +39,36 @@ export default {
       return jsonResponse({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const requestId = crypto.randomUUID();
-    return jsonResponse(
-      { reply: 'Hello from gateway', requestId },
-      { headers: { 'Access-Control-Allow-Origin': origin } }
-    );
+    try {
+      const requestId = crypto.randomUUID();
+      const payload = await request.json();
+
+      const aiRes = await fetch(
+        `https://gateway.ai.cloudflare.com/v1/${env.AI_ACCOUNT_ID_PRIMARY}/${env.AI_PROVIDER_PRIMARY}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${env.AI_API_KEY_PRIMARY}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = (await aiRes.json()) as Record<string, unknown>;
+      return jsonResponse(
+        { ...data, requestId },
+        {
+          status: aiRes.status,
+          headers: { 'Access-Control-Allow-Origin': origin },
+        }
+      );
+    } catch (error) {
+      return jsonResponse(
+        { error: 'Upstream request failed' },
+        { status: 500, headers: { 'Access-Control-Allow-Origin': origin } }
+      );
+    }
   },
 };
 
