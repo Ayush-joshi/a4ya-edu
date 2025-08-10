@@ -23,12 +23,12 @@ import { GatewayService, ChatMessage } from '../../core/gateway.service';
 
     <mat-form-field appearance="outline" class="field">
       <mat-label>Prompt</mat-label>
-      <textarea
-        matInput
+      <textarea matInput
         [value]="prompt()"
-        (input)="prompt.set(($event.target as HTMLTextAreaElement).value)"
-        rows="5"
-        placeholder="Say something..."></textarea>
+        (input)="prompt.set(($any($event.target)).value ?? '')"
+        rows="5">
+        </textarea>
+
     </mat-form-field>
 
     <div class="row">
