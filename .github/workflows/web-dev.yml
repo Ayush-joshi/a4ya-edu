@@ -1,0 +1,38 @@
+name: web-dev
+
+on:
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - run: npm ci
+        working-directory: apps/web
+      - name: Inject runtime config (text file)
+        run: |
+          mkdir -p apps/web/src/assets
+          echo '{ "gatewayUrl": "${{ vars.GATEWAY_URL }}" }' > apps/web/src/assets/runtime-config.json
+      - name: Build with base-href
+        run: npm run build -- --base-href "/${{ github.event.repository.name }}/"
+        working-directory: apps/web
+      - name: Add SPA 404 (text copy)
+        run: cp apps/web/dist/web/index.html apps/web/dist/web/404.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist/web
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/deploy-pages@v4
