@@ -9,24 +9,37 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: apps/web/package-lock.json
+          cache: npm
+          # Cache both possible lockfile locations (root or app)
+          cache-dependency-path: |
+            package-lock.json
+            apps/web/package-lock.json
 
-      - name: Install deps
+      - name: Install dependencies (prefer ci, auto-fix if out of sync)
         working-directory: apps/web
         run: |
+          set -e
           if [ -f package-lock.json ]; then
-            npm ci
+            echo "Attempting npm ci..."
+            # If lockfile is out of sync, fall back to npm install
+            npm ci || (echo "npm ci failed, running npm install to resync lockfile" && npm install --no-audit --no-fund)
           else
+            echo "No package-lock.json, running npm install to generate one..."
             npm install --no-audit --no-fund
           fi
 
@@ -39,15 +52,42 @@ jobs:
         working-directory: apps/web
         run: npm run build -- --base-href "/${{ github.event.repository.name }}/"
 
-      - name: Add SPA 404 (text copy)
-        run: cp apps/web/dist/web/index.html apps/web/dist/web/404.html
+      - name: Locate dist folder
+        id: dist
+        run: |
+          set -e
+          echo "Searching for index.html under apps/web/dist ..."
+          CANDIDATES=$(find apps/web/dist -type f -name index.html 2>/dev/null | sort || true)
+          echo "Found:"
+          echo "$CANDIDATES"
+          DIST_DIR=$(dirname "$(echo "$CANDIDATES" | head -n1)")
+          if [ -z "$DIST_DIR" ]; then
+            echo "No index.html found under apps/web/dist"
+            exit 1
+          fi
+          echo "DIST_DIR=$DIST_DIR" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Debug dist tree
+        run: |
+          echo "Resolved DIST_DIR: ${{ steps.dist.outputs.DIST_DIR }}"
+          echo "Tree:"
+          ls -laR "${{ steps.dist.outputs.DIST_DIR }}" || true
+
+      - name: Add SPA 404
+        run: cp "${{ steps.dist.outputs.DIST_DIR }}/index.html" "${{ steps.dist.outputs.DIST_DIR }}/404.html"
+
+      - name: Upload artifact for Pages
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/web/dist/web
+          path: ${{ steps.dist.outputs.DIST_DIR }}
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
