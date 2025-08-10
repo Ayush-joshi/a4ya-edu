@@ -19,6 +19,7 @@ jobs:
         working-directory: apps/gateway-worker
         run: wrangler deploy
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           AI_PROVIDER_PRIMARY: ${{ vars.AI_PROVIDER_PRIMARY }}
           AI_ACCOUNT_ID_PRIMARY: ${{ vars.AI_ACCOUNT_ID_PRIMARY }}
           ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
