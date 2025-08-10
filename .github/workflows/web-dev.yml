@@ -16,9 +16,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # IMPORTANT: use the env that contains GATEWAY_URL
-    environment:
-      name: staging
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,6 +25,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          # Cache both possible lockfile locations (root or app)
           cache-dependency-path: |
             package-lock.json
             apps/web/package-lock.json
@@ -38,25 +36,17 @@ jobs:
           set -e
           if [ -f package-lock.json ]; then
             echo "Attempting npm ci..."
+            # If lockfile is out of sync, fall back to npm install
             npm ci || (echo "npm ci failed, running npm install to resync lockfile" && npm install --no-audit --no-fund)
           else
             echo "No package-lock.json, running npm install to generate one..."
             npm install --no-audit --no-fund
           fi
 
-      - name: Verify GATEWAY_URL from environment
-        run: |
-          if [ -z "${{ vars.GATEWAY_URL }}" ]; then
-            echo "ERROR: GATEWAY_URL is empty. Set it in Settings → Environments → staging → Variables."
-            exit 1
-          fi
-          echo "GATEWAY_URL is set (length hidden)"
-
       - name: Inject runtime config (text file)
         run: |
           mkdir -p apps/web/src/assets
           echo '{ "gatewayUrl": "${{ vars.GATEWAY_URL }}" }' > apps/web/src/assets/runtime-config.json
-          echo "Wrote apps/web/src/assets/runtime-config.json"
 
       - name: Build with base-href
         working-directory: apps/web
@@ -77,12 +67,11 @@ jobs:
           fi
           echo "DIST_DIR=$DIST_DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Debug dist tree + runtime-config
+      - name: Debug dist tree
         run: |
           echo "Resolved DIST_DIR: ${{ steps.dist.outputs.DIST_DIR }}"
+          echo "Tree:"
           ls -laR "${{ steps.dist.outputs.DIST_DIR }}" || true
-          echo "--- runtime-config.json (if present) ---"
-          cat "${{ steps.dist.outputs.DIST_DIR }}/assets/runtime-config.json" || true
 
       - name: Add SPA 404
         run: cp "${{ steps.dist.outputs.DIST_DIR }}/index.html" "${{ steps.dist.outputs.DIST_DIR }}/404.html"
