@@ -5,7 +5,8 @@ export async function runEmbeddingsCF(
   { input }: EmbeddingsArgs,
   env: Env
 ): Promise<EmbeddingsResult> {
-  const url = `https://api.cloudflare.com/client/v4/accounts/${env.AI_ACCOUNT_ID_PRIMARY}/ai/run/@cf/baai/bge-m3`;
+  const model = env.AI_MODEL_EMBEDDINGS_PRIMARY;
+  const url = `https://api.cloudflare.com/client/v4/accounts/${env.AI_ACCOUNT_ID_PRIMARY}/ai/run/${model}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -21,6 +22,6 @@ export async function runEmbeddingsCF(
   const embeddings: number[][] = json?.result?.data || [];
   return {
     data: embeddings.map((embedding: number[], index: number) => ({ embedding, index })),
-    model: '@cf/baai/bge-m3',
+    model,
   };
 }

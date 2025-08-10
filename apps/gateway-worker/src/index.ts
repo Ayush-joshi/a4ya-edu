@@ -4,8 +4,11 @@ export interface Env {
   AI_PROVIDER_PRIMARY: string;
   AI_ACCOUNT_ID_PRIMARY: string;
   AI_API_KEY_PRIMARY: string;
+  AI_MODEL_CHAT_PRIMARY?: string;
+  AI_MODEL_EMBEDDINGS_PRIMARY?: string;
   ALLOWED_ORIGINS: string;
   GATEWAY_PUBLIC_KEY: string;
+  GIT_SHA?: string;
 }
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
@@ -25,15 +28,6 @@ export default {
     if (request.method === 'OPTIONS') {
       return handleOptions(request, env);
     }
-
-    if (request.method !== 'POST') {
-      return new Response('Not found', { status: 404 });
-    }
-
-    if (url.pathname !== '/v1/chat' && url.pathname !== '/v1/embeddings') {
-      return new Response('Not found', { status: 404 });
-    }
-
     const origin = request.headers.get('Origin') || '';
     const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
     if (!allowedOrigins.includes(origin)) {
@@ -49,6 +43,25 @@ export default {
         { error: 'Unauthorized' },
         { status: 401, headers: { 'Access-Control-Allow-Origin': origin } }
       );
+    }
+
+    if (request.method === 'GET' && url.pathname === '/health') {
+      return jsonResponse(
+        { ok: true },
+        { status: 200, headers: { 'Access-Control-Allow-Origin': origin } }
+      );
+    }
+
+    if (request.method === 'GET' && url.pathname === '/version') {
+      const gitSha = env.GIT_SHA ? env.GIT_SHA.slice(0, 7) : 'unknown';
+      return jsonResponse(
+        { gitSha, timestamp: new Date().toISOString() },
+        { status: 200, headers: { 'Access-Control-Allow-Origin': origin } }
+      );
+    }
+
+    if (request.method !== 'POST') {
+      return new Response('Not found', { status: 404 });
     }
 
     if (url.pathname === '/v1/chat') {
@@ -71,9 +84,12 @@ async function handleChat(request: Request, env: Env, origin: string): Promise<R
       payload = await request.json();
     } catch {}
 
+    const model = env.AI_MODEL_CHAT_PRIMARY;
+    payload.model = model;
+
     if (env.AI_PROVIDER_PRIMARY === 'noop') {
       return jsonResponse(
-        { reply: 'Hello from gateway', requestId },
+        { reply: 'Hello from gateway', model, requestId },
         { status: 200, headers: { 'Access-Control-Allow-Origin': origin } }
       );
     }
@@ -99,7 +115,7 @@ async function handleChat(request: Request, env: Env, origin: string): Promise<R
 
     const data = (await aiRes.json()) as Record<string, unknown>;
     return jsonResponse(
-      { ...data, requestId },
+      { ...data, model, requestId },
       {
         status: aiRes.status,
         headers: { 'Access-Control-Allow-Origin': origin },
@@ -161,7 +177,7 @@ function handleOptions(request: Request, env: Env): Response {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
     },
   });

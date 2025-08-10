@@ -12,7 +12,7 @@ export interface EmbeddingItem {
 
 export interface EmbeddingsResult {
   data: EmbeddingItem[];
-  model: string;
+  model: string | undefined;
 }
 
 export async function runEmbeddings(
