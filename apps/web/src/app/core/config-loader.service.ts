@@ -1,45 +1,31 @@
 import { Injectable, signal } from '@angular/core';
 
-export type RuntimeConfig = {
+export interface RuntimeConfig {
   gatewayUrl: string;
-};
+}
 
 const DEFAULT_CONFIG: RuntimeConfig = {
-  // Safe local default; change if your local API differs.
-  gatewayUrl: 'https://gateway-worker.ayush-joshi03.workers.dev',
+  gatewayUrl: '',
 };
 
 @Injectable({ providedIn: 'root' })
 export class ConfigLoaderService {
-  private readonly cfg = signal<RuntimeConfig>(DEFAULT_CONFIG);
+  config = signal<RuntimeConfig | null>(null);
 
-  get config() { return this.cfg(); }
-  get gatewayUrl() { return this.cfg().gatewayUrl; }
-
-  /**
-   * Loads /assets/runtime-config.json and merges with defaults.
-   * Falls back to defaults if the file is missing, HTML (index.html), or invalid.
-   */
   async load(): Promise<void> {
     try {
-      const res = await fetch('assets/runtime-config.json', { cache: 'no-store' });
+      const res = await fetch('assets/runtime-config.json');
       if (!res.ok) {
-        console.warn(`[ConfigLoader] runtime-config.json not found (${res.status}); using defaults.`);
-        this.cfg.set(DEFAULT_CONFIG);
+        console.error(
+          `Failed to load runtime config: ${res.status} ${res.statusText}`,
+        );
+        this.config.set(DEFAULT_CONFIG);
         return;
       }
-      const text = await res.text();
-      const t = text.trim();
-      if (t.startsWith('<!DOCTYPE') || t.startsWith('<html')) {
-        console.warn('[ConfigLoader] Got HTML instead of JSON; using defaults.');
-        this.cfg.set(DEFAULT_CONFIG);
-        return;
-      }
-      const json = JSON.parse(text);
-      this.cfg.set({ ...DEFAULT_CONFIG, ...json });
+      this.config.set(await res.json());
     } catch (err) {
-      console.warn('[ConfigLoader] Failed to load config; using defaults.', err);
-      this.cfg.set(DEFAULT_CONFIG);
+      console.error('Error loading runtime config', err);
+      this.config.set(DEFAULT_CONFIG);
     }
   }
 }

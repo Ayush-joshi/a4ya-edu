@@ -18,7 +18,7 @@ export const appConfig: ApplicationConfig = {
     {
       provide: APP_INITIALIZER,
       multi: true,
-      useFactory: (loader: ConfigLoaderService) => () => loader.load(),
+      useFactory: initConfig,
       deps: [ConfigLoaderService],
     },
   ],
