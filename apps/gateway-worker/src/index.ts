@@ -2,15 +2,13 @@
 import { runEmbeddingsCF } from './providers/cloudflare';
 
 export interface Env {
-  // Which provider to use (you already have this)
+  // Provider selector (you can add more providers later)
   AI_PROVIDER_PRIMARY: string;
 
-  // Cloudflare AI bindings (you already use these in providers/cloudflare.ts)
+  // Cloudflare AI bindings
   AI_ACCOUNT_ID_PRIMARY: string;
   AI_API_KEY_PRIMARY: string;
   AI_MODEL_EMBEDDINGS_PRIMARY: string;
-
-  // If you add chat later, add its model name here:
   AI_MODEL_CHAT_PRIMARY?: string;
 }
 
@@ -39,8 +37,7 @@ function makeCorsHeaders(originHeader: string | null): Headers {
   h.append('Vary', 'Access-Control-Request-Headers');
   h.set('Access-Control-Allow-Methods', ALLOWED_METHODS.join(', '));
   h.set('Access-Control-Allow-Headers', ALLOWED_HEADERS.join(', '));
-  // Only enable if you actually use cookies/credentials
-  // h.set('Access-Control-Allow-Credentials', 'true');
+  // h.set('Access-Control-Allow-Credentials', 'true'); // enable only if needed
   return h;
 }
 
@@ -56,18 +53,74 @@ function methodNotAllowed(origin: string | null): Response {
   return jsonResponse({ error: 'Method Not Allowed' }, { status: 405 }, origin);
 }
 
-// ---- TYPES FOR EMBEDDINGS REQUEST ----
-type EmbeddingsArgs = { input: string | string[] };
-type EmbeddingItem = { embedding: number[]; index: number };
-type EmbeddingsResult = { data: EmbeddingItem[]; model: string | undefined };
+// ---- Chat payload shaping ----
+type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+type ChatPayload = {
+  messages?: ChatMessage[];
+  prompt?: string;
+  message?: string;
+  // optional common knobs (passed through if present)
+  temperature?: number;
+  top_p?: number;
+  max_tokens?: number;
+  stream?: boolean;
+  [k: string]: unknown;
+};
 
-// ---- OPTIONAL: SIMPLE CHAT HANDLER (stub / echo). Replace with real logic later. ----
-async function runChatCF(payload: any, env: Env): Promise<any> {
-  // TODO: call your upstream model here (Cloudflare Workers AI, OpenAI, etc.)
+function normalizeChatPayload(incoming: any): ChatPayload {
+  const p: ChatPayload = typeof incoming === 'object' && incoming ? { ...incoming } : {};
+  // If no messages but a single string is provided, wrap it.
+  if (!Array.isArray(p.messages)) {
+    const text = typeof p.prompt === 'string' ? p.prompt
+      : typeof p.message === 'string' ? p.message
+      : undefined;
+    if (typeof text === 'string') {
+      p.messages = [{ role: 'user', content: text }];
+      delete p.prompt;
+      delete p.message;
+    }
+  }
+  // Ensure messages exists and is a non-empty array
+  if (!Array.isArray(p.messages) || p.messages.length === 0) {
+    p.messages = [{ role: 'user', content: 'Hello' }];
+  }
+  return p;
+}
+
+// ---- Cloudflare Workers AI: Chat call ----
+async function runChatCF(incoming: any, env: Env): Promise<any> {
+  if (!env.AI_MODEL_CHAT_PRIMARY) {
+    throw new Error('AI_MODEL_CHAT_PRIMARY is not set');
+  }
+
+  const payload = normalizeChatPayload(incoming);
+
+  const url = `https://api.cloudflare.com/client/v4/accounts/${env.AI_ACCOUNT_ID_PRIMARY}/ai/run/${env.AI_MODEL_CHAT_PRIMARY}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.AI_API_KEY_PRIMARY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  // Propagate non-2xx with the upstream body to help debugging
+  const text = await res.text();
+  let json: any;
+  try { json = JSON.parse(text); } catch { json = { raw: text }; }
+
+  if (!res.ok) {
+    const msg = typeof json?.errors?.[0]?.message === 'string'
+      ? json.errors[0].message
+      : `Upstream error ${res.status}`;
+    throw new Error(msg);
+  }
+
+  // Cloudflare AI returns { result: {...}, ... } shape typically
   return {
-    model: env.AI_MODEL_CHAT_PRIMARY ?? 'echo-stub',
-    message: payload?.message ?? null,
-    echo: payload,
+    model: env.AI_MODEL_CHAT_PRIMARY,
+    ...json,
   };
 }
 
@@ -75,21 +128,49 @@ async function runChatCF(payload: any, env: Env): Promise<any> {
 async function handleChat(req: Request, env: Env, origin: string | null): Promise<Response> {
   if (req.method !== 'POST') return methodNotAllowed(origin);
   const body = await req.json().catch(() => ({}));
+
   try {
+    if (env.AI_PROVIDER_PRIMARY === 'noop') {
+      const requestId = crypto.randomUUID();
+      return jsonResponse(
+        { reply: 'Hello from gateway', model: 'noop', requestId, echo: body },
+        { status: 200 },
+        origin,
+      );
+    }
+
+    if (env.AI_PROVIDER_PRIMARY !== 'cloudflare-workers-ai') {
+      return jsonResponse(
+        { error: 'Provider not implemented' },
+        { status: 501 },
+        origin,
+      );
+    }
+
     const result = await runChatCF(body, env);
-    return jsonResponse(result, { status: 200 }, origin);
-  } catch (err) {
-    return jsonResponse({ error: 'Chat failed', detail: String(err) }, { status: 500 }, origin);
+    const requestId = crypto.randomUUID();
+    return jsonResponse(
+      { ...result, provider: 'cloudflare-workers-ai', requestId },
+      { status: 200 },
+      origin,
+    );
+  } catch (err: any) {
+    return jsonResponse(
+      { error: 'Chat failed', detail: String(err?.message ?? err) },
+      { status: 500 },
+      origin,
+    );
   }
 }
 
 async function handleEmbeddings(req: Request, env: Env, origin: string | null): Promise<Response> {
   if (req.method !== 'POST') return methodNotAllowed(origin);
   const payload = await req.json().catch(() => ({}));
-  const input = (payload?.input ?? '') as EmbeddingsArgs['input'];
+  const input = (payload?.input ?? '') as string | string[];
+
   try {
     if (env.AI_PROVIDER_PRIMARY === 'cloudflare-workers-ai') {
-      const result = (await runEmbeddingsCF({ input }, env)) as EmbeddingsResult;
+      const result = await runEmbeddingsCF({ input }, env);
       return jsonResponse(result, { status: 200 }, origin);
     }
     return jsonResponse({ error: 'Provider not implemented' }, { status: 501 }, origin);
