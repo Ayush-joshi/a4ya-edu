@@ -1,19 +1,33 @@
-name: Gateway Worker Dev Deploy
-
+name: "gateway: deploy (dev)"
 on:
   push:
-    branches: [dev]
-
+    branches: ["dev"]
+concurrency:
+  group: gateway-dev-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: dev
-    defaults:
-      run:
-        working-directory: apps/gateway-worker
+    environment: staging
     steps:
       - uses: actions/checkout@v4
-      - name: Install Wrangler
-        run: npm install -g wrangler
-      - name: Deploy Worker
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+      - run: npm i -g wrangler
+      - name: Deploy with Wrangler
+        working-directory: apps/gateway-worker
         run: wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          AI_PROVIDER_PRIMARY: ${{ vars.AI_PROVIDER_PRIMARY }}
+          AI_ACCOUNT_ID_PRIMARY: ${{ vars.AI_ACCOUNT_ID_PRIMARY }}
+          ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+          AI_API_KEY_PRIMARY: ${{ secrets.AI_API_KEY_PRIMARY }}
+          GATEWAY_PUBLIC_KEY: ${{ secrets.GATEWAY_PUBLIC_KEY }}
+          GIT_SHA: ${{ github.sha }}
+      - name: Summary
+        run: |
+          echo "## Deployed gateway (dev)" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: $GITHUB_REF_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "- Worker path: apps/gateway-worker" >> $GITHUB_STEP_SUMMARY
