@@ -1,3 +1,9 @@
 name = "gateway-worker"
 main = "src/index.ts"
-compatibility_date = "2024-11-01"
+compatibility_date = "2024-10-01"
+
+[vars]
+AI_PROVIDER_PRIMARY = "cloudflare-workers-ai"
+AI_ACCOUNT_ID_PRIMARY = "8cfd3469e4c7224ef02c0eb2ee597373"
+# include schemes, comma separated
+ALLOWED_ORIGINS = "http://localhost:4200,https://ayush-joshi03.github.io,https://ayush-joshi03.github.io/a4ya-edu"
