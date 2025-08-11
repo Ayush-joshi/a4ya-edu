@@ -1,0 +1,11 @@
+<mat-toolbar color="primary" class="w-full z-10">
+  <span class="ml-2 font-semibold">a4ya-edu</span>
+  <span class="flex-1"></span>
+  <button mat-icon-button [matMenuTriggerFor]="menu">
+    <mat-icon>account_circle</mat-icon>
+  </button>
+</mat-toolbar>
+<mat-menu #menu="matMenu">
+  <button mat-menu-item routerLink="about">About us</button>
+  <button mat-menu-item (click)="logout()">Logout</button>
+</mat-menu>
