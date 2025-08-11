@@ -14,6 +14,7 @@ import { ApiDebugStore } from './api-debug.store';
     NgIf, NgFor, JsonPipe,
     MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule,
   ],
+    providers: [ApiDebugStore],
   template: `
     <div class="row">
       <mat-form-field appearance="outline" class="field">
