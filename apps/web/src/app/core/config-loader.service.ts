@@ -1,4 +1,7 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { catchError, map, tap } from 'rxjs/operators';
+import { of } from 'rxjs';
 
 export interface RuntimeConfig {
   gatewayUrl: string;
@@ -10,21 +13,19 @@ const DEFAULT_CONFIG: RuntimeConfig = {
 
 @Injectable({ providedIn: 'root' })
 export class ConfigLoaderService {
+  private http = inject(HttpClient);
   config = signal<RuntimeConfig>(DEFAULT_CONFIG);
 
-  async load(): Promise<void> {
+  load() {
     const url = new URL('assets/runtime-config.json', document.baseURI).href;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) {
-        console.error(
-          `Failed to load runtime config: ${res.status} ${res.statusText}`,
-        );
-        return;
-      }
-      this.config.set(await res.json());
-    } catch (err) {
-      console.error('Error loading runtime config', err);
-    }
+    return this.http.get<RuntimeConfig>(url).pipe(
+      tap((cfg) => this.config.set(cfg)),
+      catchError((err) => {
+        console.error('Error loading runtime config', err);
+        this.config.set(DEFAULT_CONFIG);
+        return of(DEFAULT_CONFIG);
+      }),
+      map(() => void 0)
+    );
   }
 }
