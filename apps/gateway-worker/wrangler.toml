@@ -1,14 +1,3 @@
 name = "gateway-worker"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
-
-# Map GitHub Action env/vars into Worker VARS at deploy time
-[vars]
-AI_PROVIDER_PRIMARY         = "${AI_PROVIDER_PRIMARY}"
-AI_ACCOUNT_ID_PRIMARY       = "${AI_ACCOUNT_ID_PRIMARY}"
-ALLOWED_ORIGINS             = "${ALLOWED_ORIGINS}"
-GATEWAY_PUBLIC_KEY          = "${GATEWAY_PUBLIC_KEY}"
-GIT_SHA                     = "${GIT_SHA}"
-
-# Secrets are NOT in [vars]. Provide via `wrangler secret put` (see workflow)
-# AI_API_KEY_PRIMARY = (secret)
