@@ -1,5 +1,8 @@
 // apps/web/src/app/core/gateway.service.ts
 import { Injectable, inject } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { catchError } from 'rxjs/operators';
+import { throwError } from 'rxjs';
 import { ConfigLoaderService } from './config-loader.service';
 
 export type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
@@ -7,36 +10,37 @@ export type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: stri
 @Injectable({ providedIn: 'root' })
 export class GatewayService {
   private cfg = inject(ConfigLoaderService);
+  private http = inject(HttpClient);
 
   private base(): string {
-    // read the signal value, then normalize
     const raw = (this.cfg.config().gatewayUrl ?? '').trim();
     const b = raw.replace(/\/$/, '');
 
-    // hard guard in prod so we never fall back to GitHub Pages
     const isProd = !location.hostname.includes('localhost');
     if (isProd && !/^https?:\/\//.test(b)) {
       throw new Error('gatewayUrl missing/invalid in production');
     }
-    return b; // may be '' in dev (if you proxy), but absolute in prod
+    return b;
   }
 
-  async getModels(): Promise<{ chat: string[]; embeddings: string[] }> {
-    const res = await fetch(`${this.base()}/v1/models`, { method: 'GET' });
-    if (!res.ok) throw new Error(`models ${res.status}`);
-    return res.json();
+  getModels() {
+    return this.http
+      .get<{ chat: string[]; embeddings: string[] }>(`${this.base()}/v1/models`)
+      .pipe(
+        catchError((err: HttpErrorResponse) =>
+          throwError(() => new Error(`models ${err.status}`))
+        )
+      );
   }
 
-  async chat(payload: { model?: string; messages: ChatMessage[] }) {
-    const res = await fetch(`${this.base()}/v1/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const t = await res.text().catch(() => '');
-      throw new Error(`chat ${res.status}: ${t}`);
-    }
-    return res.json();
+  chat(payload: { model?: string; messages: ChatMessage[] }) {
+    return this.http
+      .post<any>(`${this.base()}/v1/chat`, payload)
+      .pipe(
+        catchError((err: HttpErrorResponse) => {
+          const msg = `chat ${err.status}: ${err.error ?? ''}`;
+          return throwError(() => new Error(msg));
+        })
+      );
   }
 }
