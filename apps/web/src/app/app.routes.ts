@@ -1,18 +1,36 @@
 import { Routes } from '@angular/router';
-import { LoginComponent } from './features/auth/login.component';
-import { MainLayoutComponent } from './layout/main-layout.component';
 import { authGuard } from './core/auth.guard';
-import { ApiDebugComponent } from './features/api-debug/api-debug.component';
 
 export const routes: Routes = [
-  { path: 'login', component: LoginComponent },
+  {
+    path: 'login',
+    loadComponent: () =>
+      import('./features/auth/login.component').then((m) => m.LoginComponent),
+  },
   {
     path: 'app',
-    component: MainLayoutComponent,
     canActivate: [authGuard],
+    loadComponent: () =>
+      import('./layout/main-shell.component').then((m) => m.MainShellComponent),
     children: [
-      { path: '', component: ApiDebugComponent },
+      {
+        path: 'experimental',
+        loadChildren: () =>
+          import('./features/experimental/experimental.routes').then(
+            (m) => m.EXPERIMENTAL_ROUTES
+          ),
+      },
+      {
+        path: 'about',
+        loadComponent: () =>
+          import('./features/about/about-us.component').then(
+            (m) => m.AboutUsComponent
+          ),
+      },
+      { path: '', pathMatch: 'full', redirectTo: 'experimental/api-debug' },
+      { path: '**', redirectTo: 'experimental/api-debug' },
     ],
   },
-  { path: '', pathMatch: 'full', redirectTo: 'app' },
+  { path: '', pathMatch: 'full', redirectTo: 'login' },
+  { path: '**', redirectTo: 'login' },
 ];
