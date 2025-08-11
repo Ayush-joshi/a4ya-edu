@@ -1,0 +1,28 @@
+<div class="flex gap-3 items-center mb-3">
+  <mat-form-field appearance="outline" class="w-full max-w-[840px]">
+    <mat-label>Model</mat-label>
+    <mat-select [value]="store.selectedModel()" (selectionChange)="store.setSelectedModel($event.value)">
+      <mat-option *ngFor="let m of store.chatModels()" [value]="m">{{ m }}</mat-option>
+    </mat-select>
+  </mat-form-field>
+</div>
+
+<mat-form-field appearance="outline" class="w-full max-w-[840px] mb-3">
+  <mat-label>Prompt</mat-label>
+  <textarea
+    matInput
+    [value]="store.prompt()"
+    (input)="store.setPrompt(($any($event.target)).value ?? '')"
+    rows="5"
+  ></textarea>
+</mat-form-field>
+
+<div class="flex gap-3 items-center mb-3">
+  <button mat-raised-button color="primary" [disabled]="store.sendDisabled()" (click)="store.send()">Send</button>
+  <button mat-button (click)="store.clear()">Clear</button>
+</div>
+
+<div class="my-2 text-sm opacity-80" *ngIf="store.loading()">Loading…</div>
+<div class="my-2 text-sm text-red-700" *ngIf="store.error() as e">Error: {{ e }}</div>
+
+<pre *ngIf="store.response() as r" class="whitespace-pre-wrap bg-gray-100 p-4 rounded">{{ r | json }}</pre>

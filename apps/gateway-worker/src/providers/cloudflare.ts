@@ -1,5 +1,13 @@
 import type { Env } from '../index';
-import type { EmbeddingsArgs, EmbeddingsResult } from './index';
+
+export interface EmbeddingsArgs {
+  input: string | string[];
+}
+
+export interface EmbeddingsResult {
+  data: { embedding: number[]; index: number }[];
+  model?: string;
+}
 
 export async function runEmbeddingsCF(
   { input }: EmbeddingsArgs,

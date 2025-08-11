@@ -1,5 +1,6 @@
 // src/index.ts
 import { runEmbeddingsCF } from './providers/cloudflare';
+import { requireAuth } from './middleware/auth';
 
 export interface Env {
   // Provider selector (you can add more providers later)
@@ -10,6 +11,8 @@ export interface Env {
   AI_API_KEY_PRIMARY: string;
   AI_MODEL_EMBEDDINGS_PRIMARY?: string;
   AI_MODEL_CHAT_PRIMARY?: string;
+  AUTH_MODE?: string;
+  GIT_SHA?: string;
 }
 
 // ADD NEAR TOP (below your imports/types)
@@ -141,6 +144,7 @@ async function runChatCF(incoming: any, env: Env): Promise<any> {
 // ---- ROUTE HANDLERS ----
 async function handleChat(req: Request, env: Env, origin: string | null): Promise<Response> {
   if (req.method !== 'POST') return methodNotAllowed(origin);
+  requireAuth(req);
   const body = await req.json().catch(() => ({}));
 
   try {
@@ -179,7 +183,8 @@ async function handleChat(req: Request, env: Env, origin: string | null): Promis
 
 async function handleEmbeddings(req: Request, env: Env, origin: string | null): Promise<Response> {
   if (req.method !== 'POST') return methodNotAllowed(origin);
-  const payload = await req.json().catch(() => ({}));
+  requireAuth(req);
+  const payload = await req.json<any>().catch(() => ({}));
   const input = (payload?.input ?? '') as string | string[];
 
   try {

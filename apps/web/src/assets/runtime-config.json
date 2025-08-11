@@ -1,3 +1,4 @@
 {
-  "gatewayUrl": "https://gateway-worker.ayush-joshi03.workers.dev"
+  "gatewayUrl": "http://localhost:8787",
+  "authMode": "mock"
 }
