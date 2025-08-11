@@ -157,7 +157,7 @@ async function handleChat(req: Request, env: Env, origin: string | null): Promis
 
     if (env.AI_PROVIDER_PRIMARY !== 'cloudflare-workers-ai') {
       return jsonResponse(
-        { error: 'Provider not implemented' },
+        { error: 'Provider not implemented' + env.toString() },
         { status: 501 },
         origin,
       );
