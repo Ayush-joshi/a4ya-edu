@@ -130,7 +130,7 @@ async function runChatCF(incoming: any, env: Env): Promise<any> {
     const msg = typeof json?.errors?.[0]?.message === 'string'
       ? json.errors[0].message
       : `Upstream error ${res.status}`;
-    throw new Error(msg);
+    throw new Error(msg + "Failed to run chat model: " + model);
   }
 
   // Cloudflare AI returns { result: {...}, ... } shape typically
