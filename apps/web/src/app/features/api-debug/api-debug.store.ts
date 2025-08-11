@@ -1,5 +1,6 @@
 import { computed, effect, inject } from '@angular/core';
 import { signalStore, withComputed, withHooks, withMethods, withState } from '@ngrx/signals';
+import { patchState } from '@ngrx/signals';              // ← add this
 import { catchError, finalize, tap } from 'rxjs/operators';
 import { EMPTY } from 'rxjs';
 import { GatewayService, ChatMessage } from '../../core/gateway.service';
@@ -24,38 +25,44 @@ const initialState: ApiDebugState = {
 
 export const ApiDebugStore = signalStore(
   withState(initialState),
+
   withComputed(({ loading, prompt, selectedModel }) => ({
-    sendDisabled: computed(
-      () => loading() || !prompt().trim() || !selectedModel()
-    ),
+    sendDisabled: computed(() => loading() || !prompt().trim() || !selectedModel()),
   })),
+
   withMethods((store, api = inject(GatewayService)) => ({
+    setSelectedModel(value: string) {
+    patchState(store, { selectedModel: value });
+  },
+  setPrompt(value: string) {
+    patchState(store, { prompt: value });
+  },
     loadModels() {
-      store.patchState({ loading: true, error: null });
-      api
-        .getModels()
-        .pipe(
-          tap(({ chat }) => {
-            store.patchState({
-              chatModels: chat ?? [],
-              selectedModel: chat?.[0] ?? '',
-            });
-          }),
-          catchError((e: any) => {
-            store.patchState({
-              error: String(e?.message ?? e),
-              chatModels: [],
-              selectedModel: '',
-            });
-            return EMPTY;
-          }),
-          finalize(() => store.patchState({ loading: false }))
-        )
-        .subscribe();
+      patchState(store, { loading: true, error: null });
+      api.getModels().pipe(
+        tap(({ chat }) => {
+          patchState(store, {
+            chatModels: chat ?? [],
+            selectedModel: chat?.[0] ?? '',
+          });
+        }),
+        catchError((e: any) => {
+          patchState(store, {
+            error: String(e?.message ?? e),
+            chatModels: [],
+            selectedModel: '',
+          });
+          return EMPTY;
+        }),
+        finalize(() => patchState(store, { loading: false })),
+      ).subscribe();
     },
+
     send() {
       if (store.sendDisabled()) return;
-      store.patchState({ loading: true, error: null, response: null });
+
+      patchState(store, { loading: true, error: null, response: null });
+
       const maybeModel = store.selectedModel().trim() || undefined;
       const payload = {
         model: maybeModel,
@@ -63,22 +70,22 @@ export const ApiDebugStore = signalStore(
           { role: 'user', content: store.prompt().trim() } as ChatMessage,
         ],
       };
-      api
-        .chat(payload)
-        .pipe(
-          tap((res) => store.patchState({ response: res })),
-          catchError((e: any) => {
-            store.patchState({ error: String(e?.message ?? e) });
-            return EMPTY;
-          }),
-          finalize(() => store.patchState({ loading: false }))
-        )
-        .subscribe();
+
+      api.chat(payload).pipe(
+        tap((res) => patchState(store, { response: res })),
+        catchError((e: any) => {
+          patchState(store, { error: String(e?.message ?? e) });
+          return EMPTY;
+        }),
+        finalize(() => patchState(store, { loading: false })),
+      ).subscribe();
     },
+
     clear() {
-      store.patchState({ prompt: '', response: null, error: null });
+      patchState(store, { prompt: '', response: null, error: null });
     },
   })),
+
   withHooks((store) => ({
     onInit() {
       store.loadModels();
@@ -87,5 +94,5 @@ export const ApiDebugStore = signalStore(
         if (m) console.debug('[api-debug] model =', m);
       });
     },
-  }))
+  })),
 );

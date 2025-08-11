@@ -11,13 +11,8 @@ import { ApiDebugStore } from './api-debug.store';
   selector: 'app-api-debug',
   standalone: true,
   imports: [
-    NgIf,
-    NgFor,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    JsonPipe,
+    NgIf, NgFor, JsonPipe,
+    MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule,
   ],
   template: `
     <div class="row">
@@ -25,11 +20,11 @@ import { ApiDebugStore } from './api-debug.store';
         <mat-label>Model</mat-label>
         <mat-select
           [value]="store.selectedModel()"
-          (selectionChange)="store.patchState({ selectedModel: $event.value })"
+          (selectionChange)="store.setSelectedModel($event.value)"
         >
-          <mat-option *ngFor="let m of store.chatModels()" [value]="m"
-            >{{ m }}</mat-option
-          >
+          <mat-option *ngFor="let m of store.chatModels()" [value]="m">
+            {{ m }}
+          </mat-option>
         </mat-select>
       </mat-form-field>
     </div>
@@ -39,7 +34,7 @@ import { ApiDebugStore } from './api-debug.store';
       <textarea
         matInput
         [value]="store.prompt()"
-        (input)="store.patchState({ prompt: ($any($event.target)).value ?? '' })"
+        (input)="store.setPrompt(($any($event.target)).value ?? '')"
         rows="5"
       ></textarea>
     </mat-form-field>
@@ -61,8 +56,7 @@ import { ApiDebugStore } from './api-debug.store';
 
     <pre *ngIf="store.response() as r">{{ r | json }}</pre>
   `,
-  styles: [
-    `
+  styles: [`
       .row {
         display: flex;
         gap: 0.75rem;
@@ -87,8 +81,7 @@ import { ApiDebugStore } from './api-debug.store';
         padding: 1rem;
         border-radius: 8px;
       }
-    `,
-  ],
+    `],
 })
 export class ApiDebugComponent {
   store = inject(ApiDebugStore);
