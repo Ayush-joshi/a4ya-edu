@@ -49,12 +49,13 @@ jobs:
         run: >
           wrangler deploy
           --name gateway-worker
-          --var AI_PROVIDER_PRIMARY=${{ vars.AI_PROVIDER_PRIMARY }}
-          --var AI_ACCOUNT_ID_PRIMARY=${{ vars.AI_ACCOUNT_ID_PRIMARY }}
-          --var ALLOWED_ORIGINS="${{ vars.ALLOWED_ORIGINS }}"
-          --var GATEWAY_PUBLIC_KEY=${{ secrets.GATEWAY_PUBLIC_KEY }}
-          --var GIT_SHA=${{ github.sha }}
-          --var CANARY=ok-${{ github.sha }}
+          --var AI_PROVIDER_PRIMARY='${{ vars.AI_PROVIDER_PRIMARY }}'
+          --var AI_ACCOUNT_ID_PRIMARY='${{ vars.AI_ACCOUNT_ID_PRIMARY }}'
+          --var ALLOWED_ORIGINS='${{ vars.ALLOWED_ORIGINS }}'
+          --var GATEWAY_PUBLIC_KEY='${{ secrets.GATEWAY_PUBLIC_KEY }}'
+          --var GIT_SHA='${{ github.sha }}'
+          --var CANARY='ok-${{ github.sha }}'
+
 
       - name: Wrangler whoami + deployments
         working-directory: apps/gateway-worker
