@@ -1,11 +1,75 @@
-<div class="max-w-sm mx-auto mt-10 flex flex-col gap-4">
-  <mat-form-field appearance="outline">
-    <mat-label>Email</mat-label>
-    <input matInput type="email" [value]="email()" (input)="email.set(($any($event.target)).value)" />
-  </mat-form-field>
-  <mat-form-field appearance="outline">
-    <mat-label>Password</mat-label>
-    <input matInput type="password" [value]="password()" (input)="password.set(($any($event.target)).value)" />
-  </mat-form-field>
-  <button mat-raised-button color="primary" (click)="signIn()">Login</button>
+<div class="auth-wrap">
+  <mat-card class="login-card">
+    <mat-card-content>
+
+      <!-- Brand / header -->
+      <div class="brand">
+        <span class="brand-icon">
+          <mat-icon aria-hidden="true">lock</mat-icon>
+        </span>
+        <h1 class="title">Sign in</h1>
+        <p class="subtitle">Welcome back</p>
+      </div>
+
+      <!-- Email -->
+      <mat-form-field appearance="fill" class="field">
+        <mat-label>Email</mat-label>
+        <mat-icon matPrefix>mail</mat-icon>
+        <input
+          matInput
+          #emailEl
+          type="email"
+          placeholder="you@example.com"
+          autocomplete="email"
+          [value]="email()"
+          (input)="email.set(emailEl.value)"
+          (keyup.enter)="canSubmit() && signIn()"
+        />
+      </mat-form-field>
+
+      <!-- Password -->
+      <mat-form-field appearance="fill" class="field">
+        <mat-label>Password</mat-label>
+        <mat-icon matPrefix>vpn_key</mat-icon>
+        <input
+          matInput
+          #passEl
+          [type]="showPassword() ? 'text' : 'password'"
+          placeholder="••••••••"
+          autocomplete="current-password"
+          [value]="password()"
+          (input)="password.set(passEl.value)"
+          (keyup.enter)="canSubmit() && signIn()"
+        />
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          aria-label="Toggle password visibility"
+          (click)="showPassword.set(!showPassword())"
+        >
+          <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        <mat-hint *ngIf="password().length < 6">At least 6 characters</mat-hint>
+      </mat-form-field>
+
+      <!-- Action -->
+      <button
+        mat-flat-button
+        color="primary"
+        class="cta"
+        [disabled]="!canSubmit()"
+        (click)="signIn()"
+      >
+        <mat-icon aria-hidden="true" class="cta-icon">login</mat-icon>
+        Sign in
+      </button>
+
+      <!-- Footer -->
+      <div class="footer">
+        <a mat-button color="primary" href="#">Forgot password?</a>
+      </div>
+
+    </mat-card-content>
+  </mat-card>
 </div>

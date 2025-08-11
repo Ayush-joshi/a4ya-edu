@@ -15,7 +15,7 @@ import { ApiDebugStore } from './api-debug.store';
   ],
   providers: [ApiDebugStore],
   templateUrl: './api-debug.component.html',
-  styleUrls: ['./api-debug.component.css'],
+  styleUrls: ['./api-debug.component.scss'],
 })
 export class ApiDebugComponent {
   store = inject(ApiDebugStore);
