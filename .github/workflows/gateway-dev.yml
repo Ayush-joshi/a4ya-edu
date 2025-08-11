@@ -41,6 +41,20 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
+      - name: Wrangler whoami + deployments
+        working-directory: apps/gateway-worker
+        run: |
+          wrangler whoami
+          wrangler deployments list --name gateway-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Wrangler secret list
+        working-directory: apps/gateway-worker
+        run: wrangler secret list --name gateway-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
       - name: Summary
         run: |
           echo "## Deployed gateway (dev)" >> $GITHUB_STEP_SUMMARY
