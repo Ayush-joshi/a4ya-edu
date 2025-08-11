@@ -50,7 +50,9 @@
         >
           <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
         </button>
-        <mat-hint *ngIf="password().length < 6">At least 6 characters</mat-hint>
+        @if (password().length < 6) {
+          <mat-hint>At least 6 characters</mat-hint>
+        }
       </mat-form-field>
 
       <!-- Action -->

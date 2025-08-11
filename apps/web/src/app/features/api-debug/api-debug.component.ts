@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { NgIf, NgFor, JsonPipe } from '@angular/common';
+import { JsonPipe } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -10,7 +10,7 @@ import { ApiDebugStore } from './api-debug.store';
   selector: 'app-api-debug',
   standalone: true,
   imports: [
-    NgIf, NgFor, JsonPipe,
+    JsonPipe,
     MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule,
   ],
   providers: [ApiDebugStore],
