@@ -8,7 +8,7 @@ export interface Env {
   // Cloudflare AI bindings
   AI_ACCOUNT_ID_PRIMARY: string;
   AI_API_KEY_PRIMARY: string;
-  AI_MODEL_EMBEDDINGS_PRIMARY: string;
+  AI_MODEL_EMBEDDINGS_PRIMARY?: string;
   AI_MODEL_CHAT_PRIMARY?: string;
 }
 
@@ -104,12 +104,10 @@ function normalizeChatPayload(incoming: any): ChatPayload {
 
 // ---- Cloudflare Workers AI: Chat call ----
 async function runChatCF(incoming: any, env: Env): Promise<any> {
-  if (!env.AI_MODEL_CHAT_PRIMARY) {
-    throw new Error('AI_MODEL_CHAT_PRIMARY is not set');
-  }
   const payload = normalizeChatPayload(incoming);
-  const model = incoming?.model || env.AI_MODEL_CHAT_PRIMARY;
+  const model = incoming?.model;
   if (!model) throw new Error('No chat model provided');
+  env.AI_MODEL_CHAT_PRIMARY = model;
 
   const url = `https://api.cloudflare.com/client/v4/accounts/${env.AI_ACCOUNT_ID_PRIMARY}/ai/run/${model}`;
   const res = await fetch(url, {
