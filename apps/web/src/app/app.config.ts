@@ -2,14 +2,11 @@ import { ApplicationConfig, APP_INITIALIZER } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideExperimentalZonelessChangeDetection } from '@angular/core';
-import { provideHttpClient, withFetch } from '@angular/common/http';
-import { provideStore, provideState } from '@ngrx/store';
-import { provideEffects } from '@ngrx/effects';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 
 import { routes } from './app.routes';
 import { ConfigLoaderService } from './core/config-loader.service';
-import { authFeature } from './features/auth/auth.reducer';
-import { AuthEffects } from './features/auth/auth.effects';
+import { authInterceptor } from './core/auth.interceptor';
 
 function initConfig(config: ConfigLoaderService) {
   return () => config.load();
@@ -20,10 +17,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideAnimations(),
     provideExperimentalZonelessChangeDetection(),
-    provideHttpClient(withFetch()),
-    provideStore(),
-    provideState(authFeature),
-    provideEffects(AuthEffects),
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
     {
       provide: APP_INITIALIZER,
       multi: true,

@@ -5,10 +5,12 @@ import { of } from 'rxjs';
 
 export interface RuntimeConfig {
   gatewayUrl: string;
+  authMode: string;
 }
 
 const DEFAULT_CONFIG: RuntimeConfig = {
   gatewayUrl: '',
+  authMode: 'mock',
 };
 
 @Injectable({ providedIn: 'root' })

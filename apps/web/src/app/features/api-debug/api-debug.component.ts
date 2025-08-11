@@ -1,4 +1,3 @@
-// apps/web/src/app/features/api-debug/api-debug.component.ts
 import { Component, inject } from '@angular/core';
 import { NgIf, NgFor, JsonPipe } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,75 +13,9 @@ import { ApiDebugStore } from './api-debug.store';
     NgIf, NgFor, JsonPipe,
     MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule,
   ],
-    providers: [ApiDebugStore],
-  template: `
-    <div class="row">
-      <mat-form-field appearance="outline" class="field">
-        <mat-label>Model</mat-label>
-        <mat-select
-          [value]="store.selectedModel()"
-          (selectionChange)="store.setSelectedModel($event.value)"
-        >
-          <mat-option *ngFor="let m of store.chatModels()" [value]="m">
-            {{ m }}
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
-    </div>
-
-    <mat-form-field appearance="outline" class="field">
-      <mat-label>Prompt</mat-label>
-      <textarea
-        matInput
-        [value]="store.prompt()"
-        (input)="store.setPrompt(($any($event.target)).value ?? '')"
-        rows="5"
-      ></textarea>
-    </mat-form-field>
-
-    <div class="row">
-      <button
-        mat-raised-button
-        color="primary"
-        [disabled]="store.sendDisabled()"
-        (click)="store.send()"
-      >
-        Send
-      </button>
-      <button mat-button (click)="store.clear()">Clear</button>
-    </div>
-
-    <div class="meta" *ngIf="store.loading()">Loading…</div>
-    <div class="meta err" *ngIf="store.error() as e">Error: {{ e }}</div>
-
-    <pre *ngIf="store.response() as r">{{ r | json }}</pre>
-  `,
-  styles: [`
-      .row {
-        display: flex;
-        gap: 0.75rem;
-        align-items: center;
-        margin-bottom: 0.75rem;
-      }
-      .field {
-        width: 100%;
-        max-width: 840px;
-      }
-      .meta {
-        margin: 0.5rem 0;
-        font-size: 0.9rem;
-        opacity: 0.85;
-      }
-      .meta.err {
-        color: #c62828;
-      }
-      pre {
-        white-space: pre-wrap;
-        background: #f6f8fa;
-        padding: 1rem;
-        border-radius: 8px;
-      }
-    `],
+  providers: [ApiDebugStore],
+  templateUrl: './api-debug.component.html',
+  styleUrls: ['./api-debug.component.css'],
 })
 export class ApiDebugComponent {
   store = inject(ApiDebugStore);

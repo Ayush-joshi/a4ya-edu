@@ -1,6 +1,6 @@
 # Web
 
-Angular 18 app using standalone APIs, Angular Material and zoneless change detection.
+Angular 18 app using standalone APIs, Angular Material, Tailwind CSS and zoneless change detection.
 
 ## Local development
 
@@ -8,9 +8,12 @@ Angular 18 app using standalone APIs, Angular Material and zoneless change detec
    ```bash
    npm install
    ```
-2. Create `src/assets/runtime-config.json` with your gateway URL:
+2. Create `src/assets/runtime-config.json` with your gateway URL and auth mode:
    ```json
-   { "gatewayUrl": "http://localhost:8787" }
+   {
+     "gatewayUrl": "http://localhost:8787",
+     "authMode": "mock"
+   }
    ```
 3. Start the dev server:
    ```bash
@@ -18,6 +21,14 @@ Angular 18 app using standalone APIs, Angular Material and zoneless change detec
    ```
 
 The CI pipeline injects `runtime-config.json` from `${{ vars.GATEWAY_URL }}`. The client never stores secrets.
+
+## Authentication
+
+The login page accepts any email/password and stores a **fake access token** in
+`sessionStorage` and a **fake refresh token** in `localStorage`. Requests to the
+gateway automatically include `Authorization: Bearer <fake>` when the URL starts
+with `gatewayUrl`. On `401` responses the interceptor calls `refreshIfNeeded()`
+once; if still unauthorized the user is redirected to `/login`.
 
 ## Deployment
 
