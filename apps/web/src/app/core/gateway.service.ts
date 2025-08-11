@@ -9,20 +9,16 @@ export class GatewayService {
   private cfg = inject(ConfigLoaderService);
 
   private base(): string {
-    // Be permissive: support cfg.gatewayUrl or cfg.config.gatewayUrl, else ''
-    const anyCfg: any = this.cfg as any;
-    const raw =
-      (typeof anyCfg?.gatewayUrl === 'string' && anyCfg.gatewayUrl) ||
-      (typeof anyCfg?.config?.gatewayUrl === 'string' && anyCfg.config.gatewayUrl) ||
-      '';
-    const b = raw.trim().replace(/\/$/, '');
-    if (!b) {
-      const msg =
-        'Gateway base URL is not configured. Please set "gatewayUrl" in runtime-config.json';
-      console.error(msg);
-      throw new Error(msg);
+    // read the signal value, then normalize
+    const raw = (this.cfg.config().gatewayUrl ?? '').trim();
+    const b = raw.replace(/\/$/, '');
+
+    // hard guard in prod so we never fall back to GitHub Pages
+    const isProd = !location.hostname.includes('localhost');
+    if (isProd && !/^https?:\/\//.test(b)) {
+      throw new Error('gatewayUrl missing/invalid in production');
     }
-    return b;
+    return b; // may be '' in dev (if you proxy), but absolute in prod
   }
 
   async getModels(): Promise<{ chat: string[]; embeddings: string[] }> {
