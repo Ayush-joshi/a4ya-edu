@@ -18,21 +18,6 @@ jobs:
 
       - run: npm i -g wrangler
 
-      - name: Debug vars/secrets
-        run: |
-          echo "AI_PROVIDER_PRIMARY=${AI_PROVIDER_PRIMARY}"
-          echo "AI_ACCOUNT_ID_PRIMARY=${AI_ACCOUNT_ID_PRIMARY}"
-          echo "AI_MODEL_CHAT_PRIMARY=${AI_MODEL_CHAT_PRIMARY}"
-          echo "AI_MODEL_EMBEDDINGS_PRIMARY=${AI_MODEL_EMBEDDINGS_PRIMARY}"
-          echo "ALLOWED_ORIGINS=${ALLOWED_ORIGINS}"
-          echo "GATEWAY_PUBLIC_KEY=${GATEWAY_PUBLIC_KEY}"  # will be masked
-        env:
-          AI_PROVIDER_PRIMARY: ${{ vars.AI_PROVIDER_PRIMARY }}
-          AI_ACCOUNT_ID_PRIMARY: ${{ vars.AI_ACCOUNT_ID_PRIMARY }}
-          AI_MODEL_CHAT_PRIMARY: ${{ vars.AI_MODEL_CHAT_PRIMARY }}
-          AI_MODEL_EMBEDDINGS_PRIMARY: ${{ vars.AI_MODEL_EMBEDDINGS_PRIMARY }}
-          ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
-          GATEWAY_PUBLIC_KEY: ${{ secrets.GATEWAY_PUBLIC_KEY }}
 
 
       - name: Put Worker secret (AI_API_KEY_PRIMARY)
