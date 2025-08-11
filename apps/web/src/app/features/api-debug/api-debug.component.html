@@ -2,7 +2,9 @@
   <mat-form-field appearance="outline" class="w-full max-w-[840px]">
     <mat-label>Model</mat-label>
     <mat-select [value]="store.selectedModel()" (selectionChange)="store.setSelectedModel($event.value)">
-      <mat-option *ngFor="let m of store.chatModels()" [value]="m">{{ m }}</mat-option>
+      @for (m of store.chatModels(); track m) {
+        <mat-option [value]="m">{{ m }}</mat-option>
+      }
     </mat-select>
   </mat-form-field>
 </div>
@@ -22,7 +24,13 @@
   <button mat-button (click)="store.clear()">Clear</button>
 </div>
 
-<div class="my-2 text-sm opacity-80" *ngIf="store.loading()">Loading…</div>
-<div class="my-2 text-sm text-red-700" *ngIf="store.error() as e">Error: {{ e }}</div>
+@if (store.loading()) {
+  <div class="my-2 text-sm opacity-80">Loading…</div>
+}
+@if (store.error(); as e) {
+  <div class="my-2 text-sm text-red-700">Error: {{ e }}</div>
+}
 
-<pre *ngIf="store.response() as r" class="whitespace-pre-wrap bg-gray-100 p-4 rounded">{{ r | json }}</pre>
+@defer (when store.response()) {
+  <pre class="whitespace-pre-wrap bg-gray-100 p-4 rounded">{{ store.response() | json }}</pre>
+}

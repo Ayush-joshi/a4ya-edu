@@ -1,9 +1,13 @@
 <div class="flex flex-col h-screen">
   <app-top-bar></app-top-bar>
   <div class="flex flex-1 overflow-hidden">
-    <app-sidebar [collapsed]="collapsed()" (collapsedChange)="collapsed.set($event)"></app-sidebar>
+    <app-sidebar [(collapsed)]="collapsed"></app-sidebar>
     <div class="flex-1 overflow-auto p-4 md:p-6">
-      <router-outlet></router-outlet>
+      @defer {
+        <router-outlet></router-outlet>
+      } @placeholder {
+        <div>Loading...</div>
+      }
     </div>
   </div>
 </div>

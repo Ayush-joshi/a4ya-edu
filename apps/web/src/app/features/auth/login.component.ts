@@ -6,7 +6,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { AuthService } from '../../core/auth.service';
 import { MatIconModule } from '@angular/material/icon';
-import { NgIf } from '@angular/common';
 // add these imports at the top if missing:
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDividerModule } from '@angular/material/divider';
@@ -17,7 +16,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   selector: 'app-login',
   standalone: true,
 imports: [
-  NgIf,
   MatFormFieldModule,
   MatInputModule,
   MatIconModule,
