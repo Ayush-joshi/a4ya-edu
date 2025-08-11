@@ -1,184 +1,266 @@
-import { runEmbeddings } from './providers';
+// src/index.ts
+import { runEmbeddingsCF } from './providers/cloudflare';
+import { requireAuth } from './middleware/auth';
 
 export interface Env {
+  // Provider selector (you can add more providers later)
   AI_PROVIDER_PRIMARY: string;
+
+  // Cloudflare AI bindings
   AI_ACCOUNT_ID_PRIMARY: string;
   AI_API_KEY_PRIMARY: string;
-  AI_MODEL_CHAT_PRIMARY?: string;
   AI_MODEL_EMBEDDINGS_PRIMARY?: string;
-  ALLOWED_ORIGINS: string;
-  GATEWAY_PUBLIC_KEY: string;
+  AI_MODEL_CHAT_PRIMARY?: string;
+  AUTH_MODE?: string;
   GIT_SHA?: string;
 }
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers || {}),
-    },
-    ...init,
-  });
+// ADD NEAR TOP (below your imports/types)
+const ALLOWED_CHAT_MODELS = [
+  '@cf/meta/llama-3.1-8b-instruct',
+  '@cf/meta/llama-3.1-70b-instruct'
+];
+
+const ALLOWED_EMBED_MODELS = [
+  '@cf/baai/bge-m3',
+  '@cf/baai/bge-small-en-v1.5'
+];
+
+// OPTIONAL: if you want to override from an env var CSV later:
+// parse env.ALLOWED_CHAT_MODELS etc. (not shown here for brevity)
+
+
+// ---- CORS CONFIG ----
+const ALLOWED_ORIGINS = new Set<string>([
+  'http://localhost:4200',
+  'https://ayush-joshi.github.io',
+  'https://ayush-joshi.github.io/a4ya-edu',
+]);
+
+const ALLOWED_HEADERS = [
+  'authorization',
+  'content-type',
+  'x-requested-with',
+  'x-api-key',
+];
+
+const ALLOWED_METHODS = ['GET', 'POST', 'OPTIONS'];
+
+function makeCorsHeaders(originHeader: string | null): Headers {
+  const h = new Headers();
+  if (originHeader && ALLOWED_ORIGINS.has(originHeader)) {
+    h.set('Access-Control-Allow-Origin', originHeader);
+  }
+  h.set('Vary', 'Origin');
+  h.append('Vary', 'Access-Control-Request-Headers');
+  h.set('Access-Control-Allow-Methods', ALLOWED_METHODS.join(', '));
+  h.set('Access-Control-Allow-Headers', ALLOWED_HEADERS.join(', '));
+  // h.set('Access-Control-Allow-Credentials', 'true'); // enable only if needed
+  return h;
 }
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
+function jsonResponse(body: unknown, init: ResponseInit = {}, origin: string | null = null): Response {
+  const headers = new Headers(init.headers);
+  headers.set('Content-Type', 'application/json');
+  const cors = makeCorsHeaders(origin);
+  cors.forEach((v, k) => headers.set(k, v));
+  return new Response(JSON.stringify(body), { ...init, headers });
+}
 
-    if (request.method === 'OPTIONS') {
-      return handleOptions(request, env);
-    }
-    const origin = request.headers.get('Origin') || '';
-    const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
-    if (!allowedOrigins.includes(origin)) {
-      return jsonResponse(
-        { error: 'Forbidden' },
-        { status: 403, headers: { 'Access-Control-Allow-Origin': origin } }
-      );
-    }
+function methodNotAllowed(origin: string | null): Response {
+  return jsonResponse({ error: 'Method Not Allowed' }, { status: 405 }, origin);
+}
 
-    const apiKey = request.headers.get('X-API-Key');
-    if (apiKey !== env.GATEWAY_PUBLIC_KEY) {
-      return jsonResponse(
-        { error: 'Unauthorized' },
-        { status: 401, headers: { 'Access-Control-Allow-Origin': origin } }
-      );
-    }
-
-    if (request.method === 'GET' && url.pathname === '/health') {
-      return jsonResponse(
-        { ok: true },
-        { status: 200, headers: { 'Access-Control-Allow-Origin': origin } }
-      );
-    }
-
-    if (request.method === 'GET' && url.pathname === '/version') {
-      const gitSha = env.GIT_SHA ? env.GIT_SHA.slice(0, 7) : 'unknown';
-      return jsonResponse(
-        { gitSha, timestamp: new Date().toISOString() },
-        { status: 200, headers: { 'Access-Control-Allow-Origin': origin } }
-      );
-    }
-
-    if (request.method !== 'POST') {
-      return new Response('Not found', { status: 404 });
-    }
-
-    if (url.pathname === '/v1/chat') {
-      return handleChat(request, env, origin);
-    }
-
-    if (url.pathname === '/v1/embeddings') {
-      return handleEmbeddings(request, env, origin);
-    }
-
-    return new Response('Not found', { status: 404 });
-  },
+// ---- Chat payload shaping ----
+type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+type ChatPayload = {
+  messages?: ChatMessage[];
+  prompt?: string;
+  message?: string;
+  // optional common knobs (passed through if present)
+  temperature?: number;
+  top_p?: number;
+  max_tokens?: number;
+  stream?: boolean;
+  [k: string]: unknown;
 };
 
-async function handleChat(request: Request, env: Env, origin: string): Promise<Response> {
+function normalizeChatPayload(incoming: any): ChatPayload {
+  const p: ChatPayload = typeof incoming === 'object' && incoming ? { ...incoming } : {};
+  // If no messages but a single string is provided, wrap it.
+  if (!Array.isArray(p.messages)) {
+    const text = typeof p.prompt === 'string' ? p.prompt
+      : typeof p.message === 'string' ? p.message
+        : undefined;
+    if (typeof text === 'string') {
+      p.messages = [{ role: 'user', content: text }];
+      delete p.prompt;
+      delete p.message;
+    }
+  }
+  // Ensure messages exists and is a non-empty array
+  if (!Array.isArray(p.messages) || p.messages.length === 0) {
+    p.messages = [{ role: 'user', content: 'Hello' }];
+  }
+  return p;
+}
+
+// ---- Cloudflare Workers AI: Chat call ----
+async function runChatCF(incoming: any, env: Env): Promise<any> {
+  const payload = normalizeChatPayload(incoming);
+  const model = incoming?.model;
+  if (!model) throw new Error('No chat model provided');
+  env.AI_MODEL_CHAT_PRIMARY = model;
+
+  const url = `https://api.cloudflare.com/client/v4/accounts/${env.AI_ACCOUNT_ID_PRIMARY}/ai/run/${model}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.AI_API_KEY_PRIMARY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  // Propagate non-2xx with the upstream body to help debugging
+  const text = await res.text();
+  let json: any;
+  try { json = JSON.parse(text); } catch { json = { raw: text }; }
+
+  if (!res.ok) {
+    const msg = typeof json?.errors?.[0]?.message === 'string'
+      ? json.errors[0].message
+      : `Upstream error ${res.status}`;
+    throw new Error(msg + "Failed to run chat model: " + model);
+  }
+
+  // Cloudflare AI returns { result: {...}, ... } shape typically
+  return {
+    model: env.AI_MODEL_CHAT_PRIMARY,
+    ...json,
+  };
+}
+
+// ---- ROUTE HANDLERS ----
+async function handleChat(req: Request, env: Env, origin: string | null): Promise<Response> {
+  if (req.method !== 'POST') return methodNotAllowed(origin);
+  requireAuth(req);
+  const body = await req.json().catch(() => ({}));
+
   try {
-    const requestId = crypto.randomUUID();
-    let payload: any = {};
-    try {
-      payload = await request.json();
-    } catch {}
-
-    const model = env.AI_MODEL_CHAT_PRIMARY;
-    payload.model = model;
-
     if (env.AI_PROVIDER_PRIMARY === 'noop') {
+      const requestId = crypto.randomUUID();
       return jsonResponse(
-        { reply: 'Hello from gateway', model, requestId },
-        { status: 200, headers: { 'Access-Control-Allow-Origin': origin } }
+        { reply: 'Hello from gateway', model: 'noop', requestId, echo: body },
+        { status: 200 },
+        origin,
       );
     }
 
     if (env.AI_PROVIDER_PRIMARY !== 'cloudflare-workers-ai') {
       return jsonResponse(
         { error: 'Provider not implemented' },
-        { status: 501, headers: { 'Access-Control-Allow-Origin': origin } }
+        { status: 501 },
+        origin,
       );
     }
 
-    const aiRes = await fetch(
-      `https://gateway.ai.cloudflare.com/v1/${env.AI_ACCOUNT_ID_PRIMARY}/${env.AI_PROVIDER_PRIMARY}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${env.AI_API_KEY_PRIMARY}`,
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    const data = (await aiRes.json()) as Record<string, unknown>;
+    const result = await runChatCF(body, env);
+    const requestId = crypto.randomUUID();
     return jsonResponse(
-      { ...data, model, requestId },
-      {
-        status: aiRes.status,
-        headers: { 'Access-Control-Allow-Origin': origin },
-      }
+      { ...result, provider: 'cloudflare-workers-ai', requestId },
+      { status: 200 },
+      origin,
     );
-  } catch (error) {
+  } catch (err: any) {
     return jsonResponse(
-      { error: 'Upstream request failed' },
-      { status: 500, headers: { 'Access-Control-Allow-Origin': origin } }
+      { error: 'Chat failed', detail: String(err?.message ?? err) },
+      { status: 500 },
+      origin,
     );
   }
 }
 
-async function handleEmbeddings(request: Request, env: Env, origin: string): Promise<Response> {
-  let payload: any;
-  try {
-    payload = await request.json();
-  } catch {
-    return jsonResponse(
-      { error: 'Bad request' },
-      { status: 400, headers: { 'Access-Control-Allow-Origin': origin } }
-    );
-  }
-
-  if (!payload || payload.input === undefined) {
-    return jsonResponse(
-      { error: 'Bad request' },
-      { status: 400, headers: { 'Access-Control-Allow-Origin': origin } }
-    );
-  }
+async function handleEmbeddings(req: Request, env: Env, origin: string | null): Promise<Response> {
+  if (req.method !== 'POST') return methodNotAllowed(origin);
+  requireAuth(req);
+  const payload = await req.json<any>().catch(() => ({}));
+  const input = (payload?.input ?? '') as string | string[];
 
   try {
-    const requestId = crypto.randomUUID();
-    const result = await runEmbeddings({ input: payload.input }, env);
-    return jsonResponse(
-      { ...result, provider: env.AI_PROVIDER_PRIMARY, requestId },
-      { status: 200, headers: { 'Access-Control-Allow-Origin': origin } }
-    );
-  } catch (error: any) {
-    const status = error?.message === 'Not implemented' ? 501 : 500;
-    const message = status === 501 ? 'Provider not implemented' : 'Upstream request failed';
-    return jsonResponse(
-      { error: message },
-      { status, headers: { 'Access-Control-Allow-Origin': origin } }
-    );
+    if (env.AI_PROVIDER_PRIMARY === 'cloudflare-workers-ai') {
+      const result = await runEmbeddingsCF({ input }, env);
+      return jsonResponse(result, { status: 200 }, origin);
+    }
+    return jsonResponse({ error: 'Provider not implemented' }, { status: 501 }, origin);
+  } catch (err) {
+    return jsonResponse({ error: 'Embeddings failed', detail: String(err) }, { status: 500 }, origin);
   }
 }
 
 function handleOptions(request: Request, env: Env): Response {
   const origin = request.headers.get('Origin') || '';
-  const allowedOrigins = env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
-  if (!allowedOrigins.includes(origin)) {
-    return new Response(null, {
-      status: 403,
-      headers: { 'Access-Control-Allow-Origin': origin },
-    });
+  const headers = new Headers();
+  // Mirror your makeCorsHeaders policy (static allowlist in your file)
+  if (ALLOWED_ORIGINS.has(origin)) {
+    headers.set('Access-Control-Allow-Origin', origin);
   }
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
-    },
-  });
+  headers.set('Vary', 'Origin');
+  headers.set('Access-Control-Allow-Methods', ALLOWED_METHODS.join(', '));
+  headers.set('Access-Control-Allow-Headers', ALLOWED_HEADERS.join(', '));
+  return new Response(null, { status: 204, headers });
 }
+
+
+// ---- WORKER ENTRY ----
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    const origin = request.headers.get('Origin') || '';
+
+    // List allowed models for the UI dropdown
+    if (url.pathname === '/v1/models' && request.method === 'GET') {
+      return jsonResponse(
+        {
+          chat: ALLOWED_CHAT_MODELS,
+          embeddings: ALLOWED_EMBED_MODELS
+        },
+        { status: 200 },
+        origin
+      );
+    }
+
+
+    // 1) CORS preflight
+    if (request.method === 'OPTIONS') {
+      return handleOptions(request, env);
+    }
+
+    // 2) Health endpoint (optional)
+    if (request.method === 'GET' && url.pathname === '/health') {
+      return jsonResponse({ ok: true }, { status: 200 }, origin);
+    }
+
+    // 3) Version/debug endpoint (← YOUR SNIPPET GOES HERE)
+    if (url.pathname === '/version' && request.method === 'GET') {
+      return jsonResponse({
+        provider: env.AI_PROVIDER_PRIMARY || '(unset)',
+        accountId: (env.AI_ACCOUNT_ID_PRIMARY || '').slice(0, 6) + '…',
+        gitSha: env.GIT_SHA?.slice(0, 7) || '(unset)',
+        ts: new Date().toISOString(),
+      }, { status: 200 }, origin);
+    }
+
+    // 4) API routes
+    if (url.pathname === '/v1/chat') {
+      return handleChat(request, env, origin);
+    }
+    if (url.pathname === '/v1/embeddings') {
+      return handleEmbeddings(request, env, origin);
+    }
+
+    // 5) Fallback 404 (must come last)
+    return new Response('Not found', { status: 404 });
+  },
+};
+

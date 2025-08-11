@@ -1,0 +1,4 @@
+{
+  "gatewayUrl": "http://localhost:8787",
+  "authMode": "mock"
+}

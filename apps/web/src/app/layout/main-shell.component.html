@@ -1,0 +1,30 @@
+<mat-sidenav-container class="h-screen">
+  <mat-sidenav #snav [mode]="isHandset() ? 'over' : 'side'" [opened]="!isHandset()" class="w-64">
+    <mat-nav-list>
+      <div mat-subheader>Experimental</div>
+      <a mat-list-item routerLink="experimental/api-debug" routerLinkActive="active">API Debug</a>
+      <mat-divider></mat-divider>
+      <a mat-list-item routerLink="about" routerLinkActive="active">About us</a>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="h-full flex flex-col">
+    <mat-toolbar color="primary" class="sticky top-0 z-10">
+      <button mat-icon-button (click)="snav.toggle()">
+        <mat-icon>menu</mat-icon>
+      </button>
+      <span class="ml-2 font-semibold">a4ya-edu</span>
+      <span class="flex-1"></span>
+      <button mat-icon-button [matMenuTriggerFor]="menu">
+        <mat-icon>menu</mat-icon>
+      </button>
+    </mat-toolbar>
+    <mat-menu #menu="matMenu">
+      <button mat-menu-item routerLink="about">About us</button>
+      <button mat-menu-item (click)="logout()">Logout</button>
+    </mat-menu>
+    <div class="flex-1 overflow-auto p-4 md:p-6">
+      <router-outlet></router-outlet>
+    </div>
+  </mat-sidenav-content>
+</mat-sidenav-container>
