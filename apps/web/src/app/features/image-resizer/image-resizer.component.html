@@ -1,0 +1,120 @@
+<mat-toolbar color="primary">Image Resizer</mat-toolbar>
+<div class="p-4 grid gap-4 md:grid-cols-2">
+  <!-- Left panel -->
+  <div class="flex flex-col gap-4">
+    <mat-card>
+      <mat-card-title>Input & Settings</mat-card-title>
+      <mat-card-content>
+        <!-- Upload zone -->
+        <div class="border-2 border-dashed p-4 text-center" (drop)="onDrop($event)" (dragover)="onDragOver($event)">
+          <p>Drag & drop images here or</p>
+          <button mat-stroked-button color="primary" (click)="fileInput.click()">Select files</button>
+          <input #fileInput type="file" multiple accept="image/jpeg,image/png,image/webp" (change)="onFilesSelected($event)" hidden>
+        </div>
+
+        <!-- Files table -->
+        <table *ngIf="files().length" class="w-full mt-4 text-sm">
+          <thead>
+            <tr>
+              <th class="w-8"><mat-checkbox [(ngModel)]="allSelected" (change)="toggleAll(allSelected)"></mat-checkbox></th>
+              <th class="text-left">File</th>
+              <th class="text-left">Dimensions</th>
+              <th class="text-left">Size</th>
+              <th class="text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let f of files(); trackBy: trackById">
+              <td><mat-checkbox [(ngModel)]="f.selected"></mat-checkbox></td>
+              <td>{{f.name}}</td>
+              <td>{{f.originalWidth}}×{{f.originalHeight}}</td>
+              <td>{{f.size}}</td>
+              <td>{{f.status}}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Settings -->
+        <div class="mt-4 grid gap-4">
+          <div class="flex flex-wrap gap-2">
+            <button mat-stroked-button *ngFor="let p of presets" (click)="applyPreset(p)">{{p}}</button>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <mat-form-field appearance="outline">
+             <mat-label>Width</mat-label>
+              <input matInput type="number" [ngModel]="customWidth()" (ngModelChange)="customWidth.set($event)">
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Height</mat-label>
+              <input matInput type="number" [ngModel]="customHeight()" (ngModelChange)="customHeight.set($event)">
+            </mat-form-field>
+          </div>
+          <mat-checkbox [ngModel]="aspectLock()" (ngModelChange)="aspectLock.set($event)">Aspect ratio lock</mat-checkbox>
+          <mat-form-field appearance="outline">
+            <mat-label>Percentage</mat-label>
+            <input matInput type="number" [ngModel]="percentage()" (ngModelChange)="percentage.set($event)">
+            <span matSuffix>%</span>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Mode</mat-label>
+            <mat-select [ngModel]="mode()" (ngModelChange)="mode.set($event)">
+              <mat-option value="fit">Fit</mat-option>
+              <mat-option value="cover">Cover</mat-option>
+              <mat-option value="stretch">Stretch</mat-option>
+              <mat-option value="contain">Contain with background</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" *ngIf="mode() === 'contain'">
+            <mat-label>Background</mat-label>
+            <input matInput type="color" [ngModel]="background()" (ngModelChange)="background.set($event)">
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Output format</mat-label>
+            <mat-select [ngModel]="format()" (ngModelChange)="format.set($event)">
+              <mat-option value="original">Original</mat-option>
+              <mat-option value="image/jpeg">JPEG</mat-option>
+              <mat-option value="image/png">PNG</mat-option>
+              <mat-option value="image/webp">WebP</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <div class="flex items-center gap-2" *ngIf="format() === 'image/jpeg' || format() === 'image/webp'">
+            <span>Quality</span>
+            <mat-slider min="0.1" max="1" step="0.1" [ngModel]="quality()" (ngModelChange)="quality.set($event)" class="flex-1"></mat-slider>
+            <span>{{quality() | number:'1.1-1'}}</span>
+          </div>
+          <div>Filename: {{filenamePreview()}}</div>
+          <mat-checkbox [ngModel]="stripMetadata()" (ngModelChange)="stripMetadata.set($event)">Strip metadata</mat-checkbox>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Right panel -->
+  <div class="flex flex-col gap-4">
+    <mat-card class="flex-1">
+      <mat-card-title>Preview & Actions</mat-card-title>
+      <mat-card-content>
+        <div *ngIf="previewFile() as pf" class="text-center">
+          <img [src]="previewMode() === 'before' ? pf.previewUrl : pf.result?.url || pf.previewUrl" [alt]="pf.name" class="max-w-full mx-auto" />
+          <div class="mt-2 text-sm">
+            {{previewMode() === 'before' ? 'Original' : 'Processed'}}:
+            {{pf.result?.width || pf.originalWidth}}×{{pf.result?.height || pf.originalHeight}} -
+            {{pf.result?.bytes || pf.size}} bytes
+          </div>
+        </div>
+      </mat-card-content>
+      <mat-card-actions class="flex justify-center">
+        <button mat-button (click)="togglePreview()">Toggle Before/After</button>
+      </mat-card-actions>
+    </mat-card>
+    <mat-card>
+      <mat-card-actions class="flex flex-wrap gap-2">
+        <button mat-raised-button color="primary" (click)="processSelected()" [disabled]="processing()">Process Selected</button>
+        <button mat-raised-button (click)="downloadSelected()" [disabled]="!hasProcessedSelected()">Download Selected</button>
+        <button mat-raised-button (click)="downloadAll()" [disabled]="!hasAnyProcessed()">Download All (ZIP)</button>
+        <button mat-button (click)="reset()">Reset</button>
+      </mat-card-actions>
+      <mat-progress-bar *ngIf="processing()" mode="indeterminate"></mat-progress-bar>
+    </mat-card>
+  </div>
+</div>
