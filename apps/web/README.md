@@ -29,9 +29,16 @@ After a mock login the app redirects to `/app/experimental/api-debug`. The `/app
 Navigation links include:
 
 - **Experimental → API Debug** (`/app/experimental/api-debug`)
+- **Experimental → Image Resizer** (`/app/experimental/image-resizer`)
 - **About us** (`/app/about`)
 
 The header also exposes a menu with "About us" and "Logout" actions.
+
+## Image Resizer
+
+The experimental Image Resizer at `/app/experimental/image-resizer` lets you batch resize JPEG, PNG or WebP files. Upload images via drag-and-drop or file picker, choose a preset size (256, 512, 1024, 1920 or 3840) or provide custom dimensions/percentage. Modes include **Fit**, **Cover**, **Stretch** and **Contain with background**. Output format can stay original or convert to **JPEG**, **PNG** or **WebP**; quality (0.1–1.0) affects JPEG/WebP only. Processed files use the pattern `<name>_<width>x<height>.<ext>` and can be downloaded individually or as a ZIP.
+
+Processing occurs inside a Web Worker using `createImageBitmap` and `OffscreenCanvas` for performance. EXIF metadata is stripped by default. Files over 50 MB or larger than ~10 000 px are rejected; animated formats are not supported.
 
 ## Theming
 

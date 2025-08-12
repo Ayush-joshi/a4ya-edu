@@ -42,6 +42,7 @@ export class SidebarComponent {
       route: 'experimental/api-debug',
       children: [
         { id: 'api', label: 'API Debug', icon: 'code', route: 'experimental/api-debug' },
+        { id: 'resize', label: 'Image Resizer', icon: 'image', route: 'experimental/image-resizer' },
       ],
     },
     { id: 'about', label: 'About us', icon: 'info', route: 'about', dividerAbove: true },
