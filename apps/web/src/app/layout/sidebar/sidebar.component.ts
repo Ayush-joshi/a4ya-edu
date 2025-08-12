@@ -13,6 +13,7 @@ type NavItem = {
   route?: string;                 // parent is clickable (points to first child route)
   dividerAbove?: boolean;
   children?: ReadonlyArray<NavItem>;
+  bottomAligned?: boolean;   // <— NEW
 };
 
 @Component({
@@ -44,7 +45,11 @@ export class SidebarComponent {
       ],
     },
     { id: 'about', label: 'About us', icon: 'info', route: 'about', dividerAbove: true },
+    { id: 'logout', label: 'Log out', icon: 'exit_to_app', route: '/', bottomAligned: true, dividerAbove: true },
   ]);
+  readonly topNav = computed(() => this.nav().filter(i => !i.bottomAligned));
+readonly bottomNav = computed(() => this.nav().filter(i => i.bottomAligned));
+
 
   toggleCollapsed() { this.collapsed.set(!this.collapsed()); }
 

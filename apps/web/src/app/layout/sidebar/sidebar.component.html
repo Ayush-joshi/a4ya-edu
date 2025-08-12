@@ -1,92 +1,101 @@
-<!-- toggle button: slightly above & outside (abs) -->
-<button
-  mat-mini-fab color="primary"
-  class="toggle-btn"   
-  [class.left-12]="collapsed()"                 
-  (click)="toggleCollapsed()"
-  aria-label="Toggle sidebar"
->
-  <mat-icon>{{ collapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
-</button>
-
-<aside
-  class="sidebar h-full border-r relative transition-[width] duration-300 overflow-hidden"
-  [class.w-64]="!collapsed()"
-  [class.w-16]="collapsed()"
-  aria-label="Primary navigation"
->
-  <!-- Expanded -->
-  @if (!collapsed()) {
-    <div class="h-full flex flex-col">
+<!-- Sidebar + edge-pinned toggle (synced via CSS var) -->
+<div class="relative h-full" [style.--sw.px]="collapsed() ? 64 : 256">
+  <aside class="sidebar h-full border-r relative overflow-hidden transition-[width] duration-300 ease-in-out"
+    [style.width.px]="collapsed() ? 64 : 256" aria-label="Primary navigation">
+    <!-- Expanded -->
+    <!-- Expanded -->
+    @if (!collapsed()) {
+    <div class="h-full flex flex-col justify-between">
+      <!-- TOP group (scrolls) -->
       <mat-nav-list dense class="px-2 pb-2 overflow-y-auto normalize-list">
-        @for (item of nav(); track trackById) {
-          @if (item.dividerAbove) { <mat-divider class="my-2"></mat-divider> }
+        @for (item of topNav(); track trackById) {
+        @if (item.dividerAbove) { <mat-divider class="my-2"></mat-divider> }
 
-          <!-- Parent / Leaf (identical row) -->
-           @if (item.route) {
-          <a
-            mat-list-item
-            class="flex items-center justify-center row"
-            [class.active]="isItemActive(item)"
-            [routerLink]="item.route"
-          >
-            <span class="leading"><mat-icon>{{ item.icon }}</mat-icon></span>
-            <span class="label">{{ item.label }}</span>
-          </a>
+        @if (item.route) {
+        <a mat-list-item class="flex items-center justify-center row !w-[90%]" [class.active]="isItemActive(item)"
+          [routerLink]="item.route">
+          <span class="leading"><mat-icon>{{ item.icon }}</mat-icon></span>
+          <span class="label">{{ item.label }}</span>
+        </a>
         }
 
-          <!-- Children always visible underneath -->
-          @if (item.children?.length) {
-            <div class="children">
-              @for (c of item.children; track trackById) {
-                <a
-                  mat-list-item
-                  class="row child"
-                  [class.child-active]="isChildActive(c.route)"
-                  [routerLink]="c.route"
-                  matTooltip="{{ c.label }}"
-                >
-                  <span class="leading"><span class="dash" aria-hidden="true"></span></span>
-                  <span class="label">{{ c.label }}</span>
-                </a>
-              }
-            </div>
+        @if (item.children?.length) {
+        <div class="children">
+          @for (c of item.children; track trackById) {
+          <a mat-list-item class="row child !w-[90%]" [class.child-active]="isChildActive(c.route)"
+            [routerLink]="c.route" matTooltip="{{ c.label }}">
+            <span class="leading"><span class="dash" aria-hidden="true"></span></span>
+            <span class="label">{{ c.label }}</span>
+          </a>
           }
+        </div>
+        }
+        }
+      </mat-nav-list>
+
+      <!-- BOTTOM group (anchored) -->
+      <mat-nav-list dense class="px-2 pt-2 pb-2 mt-auto normalize-list">
+        @for (item of bottomNav(); track trackById) {
+        @if (item.dividerAbove) { <mat-divider class="my-2"></mat-divider> }
+        @if (item.route) {
+        <a mat-list-item class="flex items-center justify-center row !w-[90%]" [class.active]="isItemActive(item)"
+          [routerLink]="item.route">
+          <span class="leading"><mat-icon>{{ item.icon }}</mat-icon></span>
+          <span class="label">{{ item.label }}</span>
+        </a>
+        }
         }
       </mat-nav-list>
     </div>
-  } @else {
-    <!-- Collapsed: icon rail; children as dots with tooltips -->
-    <mat-nav-list dense class="px-0 overflow-y-auto normalize-list">
-      @for (item of nav(); track trackById) {
+    }
+    @else {
+    <!-- Collapsed: icon rail -->
+    <div class="h-full flex flex-col justify-between">
+      <!-- TOP rail -->
+      <mat-nav-list dense class="px-0 overflow-y-auto normalize-list">
+        @for (item of topNav(); track trackById) {
         @if (item.dividerAbove) { <mat-divider class="my-2"></mat-divider> }
-
-        <div class="rail-group">
-          <!-- Parent icon (click selects first child via parent.route) -->
-          <a
-            mat-list-item class="rail-icon"
-            [class.active]="isItemActive(item)"
-            [routerLink]="item.route"
-            matTooltip="{{ item.label }}" matTooltipPosition="right"
-          >
+        <div class="rail-group !w-[86%] ml-[7%]">
+          <a mat-list-item class="rail-icon" [class.active]="isItemActive(item)" [routerLink]="item.route"
+            matTooltip="{{ item.label }}" matTooltipPosition="right">
             <mat-icon>{{ item.icon }}</mat-icon>
           </a>
 
-          <!-- Child dots -->
           @if (item.children?.length) {
-            <div class="child-dots">
-              @for (c of item.children; track trackById) {
-                <a
-                  class="dot"
-                  [class.dot-active]="isChildActive(c.route)"
-                  [routerLink]="c.route"
-                  matTooltip="{{ c.label }}" matTooltipPosition="right"
-                ></a>
-              }
-            </div>
+          <div class="child-dots">
+            @for (c of item.children; track trackById) {
+            <a class="dot" [class.dot-active]="isChildActive(c.route)" [routerLink]="c.route" matTooltip="{{ c.label }}"
+              matTooltipPosition="right"></a>
+            }
+          </div>
           }
         </div>
-      }
-    </mat-nav-list>
-  }
-</aside>
+        }
+      </mat-nav-list>
+
+      <!-- BOTTOM rail -->
+      <mat-nav-list dense class="px-0 mt-auto normalize-list">
+        @for (item of bottomNav(); track trackById) {
+        @if (item.dividerAbove) { <mat-divider class="my-2"></mat-divider> }
+
+        <div class="rail-group !w-[86%] ml-[7%]">
+          <a mat-list-item class="rail-icon" [class.active]="isItemActive(item)" [routerLink]="item.route"
+            matTooltip="{{ item.label }}" matTooltipPosition="right">
+            <mat-icon>{{ item.icon }}</mat-icon>
+          </a>
+        </div>
+        }
+      </mat-nav-list>
+    </div>
+    }
+
+  </aside>
+  <button mat-mini-fab color="primary" class="toggle-btn scale-[0.7]" (click)="toggleCollapsed()"
+    aria-label="Toggle sidebar">
+    <mat-icon class="transition-transform duration-300 ease-in-out"
+      [style.transform]="collapsed() ? 'rotate(0deg)' : 'rotate(180deg)'" [fontIcon]="'chevron_left'">
+    </mat-icon>
+  </button>
+
+
+</div>
