@@ -34,6 +34,12 @@
 
   &:hover {
     background-color: mix($surface-variant, $elevated, 85%);
+    .label {
+      color: #ffffff; // almost pure white
+    }
+     .leading mat-icon {
+      color: #ffffff; // light mode hover
+    }
     @media (prefers-color-scheme: dark) {
       background-color: mix($surface-variant-dark, $elevated-dark, 72%);
     }
@@ -53,7 +59,6 @@
 /* fixed leading column for perfect icon/label alignment */
 .leading {
   width: 1.5rem;      // 24px
-  flex: 0 0 1.5rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -81,6 +86,9 @@
     height: 2.25rem;    // 36px
     border-radius: 0 $radius $radius 0;
     &:hover {
+      .leading .dash{
+      background-color: #ffffff; // light mode hover
+    }
       background-color: mix($surface-variant, $elevated, 90%);
       @media (prefers-color-scheme: dark) {
         background-color: mix($surface-variant-dark, $elevated-dark, 78%);
@@ -121,6 +129,9 @@
   margin: 0.125rem 0.375rem; // y 2px, x 6px
   border-radius: 0.75rem;
   &:hover {
+    mat-icon {
+      color: #ffffff; // light mode hover
+    }
     background-color: mix($surface-variant, $elevated, 85%);
     @media (prefers-color-scheme: dark) {
       background-color: mix($surface-variant-dark, $elevated-dark, 72%);
